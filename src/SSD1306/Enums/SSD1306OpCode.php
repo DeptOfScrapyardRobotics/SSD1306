@@ -1,0 +1,34 @@
+<?php
+
+namespace DeptOfScrapyardRobotics\Displays\SSD1306\SSD1306\Enums;
+
+enum SSD1306OpCode: int
+{
+    case ADDRESS_MODE_REGISTER = 0x20;
+    case SET_COLUMN_ADDRESS = 0x21;
+    case SET_PAGE_ADDRESS = 0x22;
+    case STOP_SCROLLING = 0x2E;
+
+    case CONTRAST_REGISTER = 0x81;
+    case CP_REGULATOR_REGISTER = 0x8D;
+
+    case MAP_SEG0_TO_SEG0_REGISTER = 0xA0;
+    case MAP_SEG0_TO_SEG127_REGISTER = 0xA1;
+    case NORMAL_OPERATION_MODE = 0xA4;
+    case FILLED_SCREEN_MODE = 0xA5;
+    case INVERT_DISPLAY_OFF = 0xA6;
+    case INVERT_DISPLAY_ON = 0xA7;
+    case MUX_REGISTER = 0xA8;
+    case TOGGLE_DISPLAY_OFF = 0xAE;
+    case TOGGLE_DISPLAY_ON = 0xAF;
+
+    case MAP_COL_0_TO_COL_0 = 0xC0;
+    case MAP_COL_0_TO_COL_N_MINUS_1 = 0xC8;
+
+    case COM_PINS_HW_CONFIG_REGISTER = 0xDA;
+    case VERTICAL_OFFSET_REGISTER = 0xD3;
+    case DISPLAY_CLOCK_REGISTER = 0xD5;
+    case SET_PRECHARGE_PERIOD = 0xD9;
+    case SET_V_COM_H_DESELECT_LEVEL = 0xDB;
+
+}

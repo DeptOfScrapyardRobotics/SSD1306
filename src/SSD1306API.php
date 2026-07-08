@@ -1,23 +1,29 @@
 <?php
 
-namespace DeptOfScrapyardRobotics\Displays\SSD1306\SSD1306\Concerns;
+namespace DeptOfScrapyardRobotics\Displays\SSD1306;
 
-use DeptOfScrapyardRobotics\Displays\SSD1306\SSD1306\DataObjects\SSD1306ChargePump;
-use DeptOfScrapyardRobotics\Displays\SSD1306\SSD1306\DataObjects\SSD1306COMPinsHWConfig;
-use DeptOfScrapyardRobotics\Displays\SSD1306\SSD1306\DataObjects\SSD1306COMScanDirection;
-use DeptOfScrapyardRobotics\Displays\SSD1306\SSD1306\DataObjects\SSD1306DataClock;
-use DeptOfScrapyardRobotics\Displays\SSD1306\SSD1306\DataObjects\SSD1306SegmentRemap;
-use DeptOfScrapyardRobotics\Displays\SSD1306\SSD1306\Enums\SSD1306AddressingMode;
-use DeptOfScrapyardRobotics\Displays\SSD1306\SSD1306\Enums\SSD1306OpCode;
-use DeptOfScrapyardRobotics\Displays\SSD1306\SSD1306\Enums\SSD1306Precharge;
-use DeptOfScrapyardRobotics\Displays\SSD1306\SSD1306\Enums\SSD1306StartLineCommand;
-use DeptOfScrapyardRobotics\Displays\SSD1306\SSD1306\Enums\SSD1306VoltageCommonHigh;
-use DeptOfScrapyardRobotics\Displays\SSD1306\SSD1306\Exceptions\SSD1306Exception;
-use Exception;
+use DeptOfScrapyardRobotics\Displays\SSD1306\Breakouts\SSD1306ChargePump;
+use DeptOfScrapyardRobotics\Displays\SSD1306\Breakouts\SSD1306COMPinsHWConfig;
+use DeptOfScrapyardRobotics\Displays\SSD1306\Breakouts\SSD1306COMScanDirection;
+use DeptOfScrapyardRobotics\Displays\SSD1306\Breakouts\SSD1306DataClock;
+use DeptOfScrapyardRobotics\Displays\SSD1306\Breakouts\SSD1306SegmentRemap;
+use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306AddressingMode;
+use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306Precharge;
+use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306StartLineCommand;
+use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306VoltageCommonHigh;
+use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306OpCode;
 
 trait SSD1306API
 {
     use SSD1306InternalAPI;
+
+    protected bool $display_on = false;
+
+    protected bool $_charge_pump = true;
+
+    protected bool $fill_overlay_on = false;
+
+    protected SSD1306COMPinsHWConfig $_com_pins_config;
 
     public function displayOn(): void
     {
@@ -37,7 +43,7 @@ trait SSD1306API
     }
 
     /**
-     * @throws Exception
+     * @throws SSD1306Exception
      */
     public function setMultiplexRatio(int $ratio): void
     {
@@ -48,6 +54,9 @@ trait SSD1306API
         $this->command(SSD1306OpCode::MUX_REGISTER, [$ratio]);
     }
 
+    /**
+     * @throws SSD1306Exception
+     */
     public function setDisplayOffset(int $offset): void
     {
         if (($offset < 0) || ($offset > 63)) {
@@ -55,9 +64,12 @@ trait SSD1306API
         }
 
         $this->command(SSD1306OpCode::VERTICAL_OFFSET_REGISTER, [$offset]);
-        $this->_offset = $offset;
+        $this->_display_offset = $offset;
     }
 
+    /**
+     * @throws SSD1306Exception
+     */
     public function setDisplayStartLine(int $pos): void
     {
         if (($pos < 0) || ($pos > 63)) {
@@ -72,40 +84,18 @@ trait SSD1306API
         $register = new SSD1306ChargePump($flag);
 
         $this->command(SSD1306OpCode::CP_REGULATOR_REGISTER, [$register->toByte()]);
-        $this->charge_pump = $flag;
+        $this->_charge_pump = $flag;
     }
 
+    /**
+     * @throws SSD1306Exception
+     */
     public function setMemoryAddressingMode(SSD1306AddressingMode $mode): void
     {
         $this->command(SSD1306OpCode::ADDRESS_MODE_REGISTER, [$mode->value]);
 
-        $this->addressing_mode = $mode;
+        $this->_addressing_mode = $mode;
         $this->format_spec = $this->generateFormatSpec();
-    }
-
-    public function getAddressingMode(): SSD1306AddressingMode
-    {
-        return $this->addressing_mode;
-    }
-
-    /**
-     * Point the auto-incrementing RAM pointer at a column/page rectangle.
-     *
-     * Valid for horizontal/vertical addressing modes (the 0x21/0x22 registers).
-     * Page addressing mode (0x02) would need per-page B0-B7 commands instead.
-     */
-    public function setAddressWindow(int $x, int $y, int $width, int $height): void
-    {
-        $this->command(SSD1306OpCode::SET_COLUMN_ADDRESS, [$x, ($x + $width) - 1]);
-        $this->command(SSD1306OpCode::SET_PAGE_ADDRESS, [$y >> 3, (($y + $height) - 1) >> 3]);
-    }
-
-    /**
-     * @param  array<int, int>  $data
-     */
-    public function writeFrame(array $data): void
-    {
-        $this->data($data);
     }
 
     public function setSegmentRemap(bool $flag): void
@@ -174,5 +164,27 @@ trait SSD1306API
     public function unsetScroll(): void
     {
         $this->command(SSD1306OpCode::STOP_SCROLLING);
+    }
+
+    public function getAddressingMode(): SSD1306AddressingMode
+    {
+        return $this->addressing_mode;
+    }
+
+    /**
+     * Point the auto-incrementing RAM pointer at a column/page rectangle.
+     *
+     * Valid for horizontal/vertical addressing modes (the 0x21/0x22 registers).
+     * Page addressing mode (0x02) would need per-page B0-B7 commands instead.
+     */
+    public function setAddressWindow(int $x, int $y, int $width, int $height): void
+    {
+        $this->command(SSD1306OpCode::SET_COLUMN_ADDRESS, [$x, ($x + $width) - 1]);
+        $this->command(SSD1306OpCode::SET_PAGE_ADDRESS, [$y >> 3, (($y + $height) - 1) >> 3]);
+    }
+
+    public function setDisplay(bool $on): void
+    {
+        $on ? $this->displayOn() : $this->displayOff();
     }
 }

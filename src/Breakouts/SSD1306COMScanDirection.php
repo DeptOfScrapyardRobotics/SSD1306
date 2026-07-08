@@ -1,11 +1,11 @@
 <?php
 
-namespace DeptOfScrapyardRobotics\Displays\SSD1306\SSD1306\DataObjects;
+namespace DeptOfScrapyardRobotics\Displays\SSD1306\Breakouts;
 
-use BareMetal\DataObjects\DataRegister;
-use DeptOfScrapyardRobotics\Displays\SSD1306\SSD1306\Enums\SSD1306OpCode;
+use BareMetal\Circuits\DataRegister;
+use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306OpCode;
 
-readonly class SSD1306SegmentRemap extends DataRegister
+readonly class SSD1306COMScanDirection extends DataRegister
 {
     public function __construct(
         public bool $enabled = false,
@@ -13,10 +13,11 @@ readonly class SSD1306SegmentRemap extends DataRegister
 
     public function toBits(): string
     {
-        $bits7654321 = '1010000';
-        $bit0 = $this->enabled ? '1' : '0';
+        $bits7654 = '1100';
+        $bit3 = $this->enabled ? '1' : '0';
+        $bits210 = '000';
 
-        return "{$bits7654321}{$bit0}";
+        return "{$bits7654}{$bit3}{$bits210}";
     }
 
     public function toOpCode(): SSD1306OpCode
@@ -29,7 +30,7 @@ readonly class SSD1306SegmentRemap extends DataRegister
         $bits = byte2bits($byte);
 
         return new static(
-            $bits[0],
+            $bits[3],
         );
     }
 

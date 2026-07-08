@@ -1,14 +1,19 @@
 <?php
 
-namespace DeptOfScrapyardRobotics\Displays\SSD1306\SSD1306\Exceptions;
+namespace DeptOfScrapyardRobotics\Displays\SSD1306;
 
-use RuntimeException;
+use BareMetal\Contracts\Displays\DisplayException;
 
-class SSD1306Exception extends RuntimeException
+class SSD1306Exception extends DisplayException
 {
-    public static function invalidProperty(string $name): static
+    public static function transportMissingProtocol(): static
     {
-        return new static("Invalid property $name");
+        return new static("SSD1306 requires an SPI or an I2C capable connection.");
+    }
+
+    public static function missingDigitalPins(): static
+    {
+        return new static("SSD1306 requires SPI connections to enable DC and RST DigitalOutput pins.");
     }
 
     public static function invalidMux(int $ratio): static

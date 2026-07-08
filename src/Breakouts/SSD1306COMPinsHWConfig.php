@@ -1,8 +1,8 @@
 <?php
 
-namespace DeptOfScrapyardRobotics\Displays\SSD1306\SSD1306\DataObjects;
+namespace DeptOfScrapyardRobotics\Displays\SSD1306\Breakouts;
 
-use BareMetal\DataObjects\DataRegister;
+use BareMetal\Circuits\DataRegister;
 
 readonly class SSD1306COMPinsHWConfig extends DataRegister
 {

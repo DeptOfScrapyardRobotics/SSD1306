@@ -1,6 +1,6 @@
 <?php
 
-namespace DeptOfScrapyardRobotics\Displays\SSD1306\SSD1306\Enums;
+namespace DeptOfScrapyardRobotics\Displays\SSD1306\Enums;
 
 enum SSD1306Precharge: int
 {

@@ -2,7 +2,8 @@
 
 namespace DeptOfScrapyardRobotics\Displays\SSD1306\Breakouts;
 
-use BareMetal\Circuits\DataRegister;
+use Fabricate\Circuits\DataRegister;
+
 
 readonly class SSD1306DataClock extends DataRegister
 {

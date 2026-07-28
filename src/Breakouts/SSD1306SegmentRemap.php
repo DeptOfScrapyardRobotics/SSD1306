@@ -2,7 +2,7 @@
 
 namespace DeptOfScrapyardRobotics\Displays\SSD1306\Breakouts;
 
-use BareMetal\Circuits\DataRegister;
+use Fabricate\Circuits\DataRegister;
 use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306OpCode;
 
 readonly class SSD1306SegmentRemap extends DataRegister

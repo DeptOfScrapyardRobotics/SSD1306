@@ -1,12 +1,12 @@
 <?php
 
-namespace DeptOfScrapyardRobotics\Displays\SSD1306;
+namespace DeptOfScrapyardRobotics\Displays\SSD1306\Concerns;
 
-use BareMetal\Contracts\Circuits\BootScaffolding;
 use DeptOfScrapyardRobotics\Displays\SSD1306\Breakouts\SSD1306DataClock;
-use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306StartLineCommand;
 use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306OpCode;
-
+use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306StartLineCommand;
+use DeptOfScrapyardRobotics\Displays\SSD1306\SSD1306Exception;
+use Fabricate\Contracts\NutsAndBolts\BootScaffolding;
 
 trait SSD1306InternalAPI
 {

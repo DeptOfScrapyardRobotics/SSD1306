@@ -1,6 +1,6 @@
 <?php
 
-namespace DeptOfScrapyardRobotics\Displays\SSD1306;
+namespace DeptOfScrapyardRobotics\Displays\SSD1306\Concerns;
 
 use DeptOfScrapyardRobotics\Displays\SSD1306\Breakouts\SSD1306ChargePump;
 use DeptOfScrapyardRobotics\Displays\SSD1306\Breakouts\SSD1306COMPinsHWConfig;
@@ -8,10 +8,11 @@ use DeptOfScrapyardRobotics\Displays\SSD1306\Breakouts\SSD1306COMScanDirection;
 use DeptOfScrapyardRobotics\Displays\SSD1306\Breakouts\SSD1306DataClock;
 use DeptOfScrapyardRobotics\Displays\SSD1306\Breakouts\SSD1306SegmentRemap;
 use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306AddressingMode;
+use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306OpCode;
 use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306Precharge;
 use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306StartLineCommand;
 use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306VoltageCommonHigh;
-use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306OpCode;
+use DeptOfScrapyardRobotics\Displays\SSD1306\SSD1306Exception;
 
 trait SSD1306API
 {
@@ -120,6 +121,9 @@ trait SSD1306API
         $this->_com_pins_config = $config;
     }
 
+    /**
+     * @throws SSD1306Exception
+     */
     public function setContrast(int $contrast): void
     {
         if (($contrast < 0) || ($contrast > 255)) {

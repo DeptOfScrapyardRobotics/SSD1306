@@ -2,9 +2,9 @@
 
 namespace DeptOfScrapyardRobotics\Displays\SSD1306;
 
-use BareMetal\Contracts\Displays\DisplayException;
+use Fabricate\Contracts\Circuits\CircuitException;
 
-class SSD1306Exception extends DisplayException
+class SSD1306Exception extends CircuitException
 {
     public static function transportMissingProtocol(): static
     {
@@ -39,5 +39,10 @@ class SSD1306Exception extends DisplayException
     public static function unsupportedAddressingModeForFormatSpec(string $mode): static
     {
         return new static("No FormatSpec mapping for addressing mode {$mode}; only page-major (HORIZONTAL/PAGE) packing is currently expressible.");
+    }
+
+    public static function invalidProperty(string $name, string $class): static
+    {
+        return new static("Invalid property '{$name}' on {$class}.");
     }
 }

@@ -2,23 +2,30 @@
 
 namespace DeptOfScrapyardRobotics\Displays\SSD1306;
 
-use BareMetal\Contracts\Displays\MonochromeDisplay;
-use BareMetal\Contracts\Framebuffers\DTO\DumpedBuffer;
-use BareMetal\Contracts\Framebuffers\DTO\FormatSpec;
-use BareMetal\Contracts\Framebuffers\Enums\BitDepth;
-use BareMetal\Contracts\Framebuffers\Enums\BitOrder;
-use BareMetal\Contracts\Framebuffers\Enums\PageAxis;
-use BareMetal\Contracts\Framebuffers\Enums\PixelFormat;
-use BareMetal\Contracts\Framebuffers\Enums\ScanDirection;
-use BareMetal\Displays\Display;
-use BareMetal\Contracts\Circuits\BootSequence;
 use DeptOfScrapyardRobotics\Displays\SSD1306\Breakouts\SSD1306COMPinsHWConfig;
+use DeptOfScrapyardRobotics\Displays\SSD1306\Concerns\SSD1306API;
 use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306AddressingMode;
+use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306I2CAddress;
 use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306VoltageCommonHigh;
-use GPIO\Contracts\I2C\I2CAPI;
-use GPIO\Contracts\SPI\SPIAPI;
-use GPIO\Digital\Output\DigitalOutput;
-use ScrapyardIO\NutsAndBolts\ScrapyardIOException;
+use Exception;
+use Fabricate\Contracts\Circuits\Attributes\IntegratedCircuit;
+use Fabricate\Contracts\Circuits\IntegratedCircuit as CircuitContract;
+use Fabricate\Contracts\Displays\Interfaces\MonochromeDisplay;
+use Fabricate\Contracts\Displays\Interfaces\PartiallyRefreshable;
+use Fabricate\Contracts\Framebuffers\Enums\BitDepth;
+use Fabricate\Contracts\Framebuffers\Enums\BitOrder;
+use Fabricate\Contracts\Framebuffers\Enums\PageAxis;
+use Fabricate\Contracts\Framebuffers\Enums\PixelFormat;
+use Fabricate\Contracts\Framebuffers\Enums\ScanDirection;
+use Fabricate\Contracts\NutsAndBolts\BootSequence;
+use Fabricate\Framebuffers\DataObjects\DumpedBuffer;
+use Fabricate\Framebuffers\FormatSpec;
+use GeneralPurposeIO\Digital\DigitalIO;
+use GeneralPurposeIO\Digital\DigitalOutputPin;
+use GeneralPurposeIO\I2C\I2C;
+use GeneralPurposeIO\I2C\I2CSlave;
+use GeneralPurposeIO\SPI\SPI;
+use GeneralPurposeIO\SPI\SPIDevice;
 
 /**
  * @property bool $display_on
@@ -28,24 +35,27 @@ use ScrapyardIO\NutsAndBolts\ScrapyardIOException;
  * @property bool $charge_pump
  * @property bool $flip_line_0_and_127
  * @property bool $flip_line_scan_dir
- * @property SSD1306VoltageCommonHigh $com_pins_config
+ * @property SSD1306COMPinsHWConfig $com_pins_config
  * @property bool $powered_by_host_device
  * @property SSD1306VoltageCommonHigh $v_com_h
  * @property SSD1306AddressingMode $addressing_mode
  * @property bool $fill_overlay_on
- * @property-write  bool $invert_display
+ * @property-write bool $invert_display
  */
-class SSD1306 extends Display implements BootSequence, MonochromeDisplay
+#[IntegratedCircuit('I2C', 'SPI')]
+class SSD1306 implements CircuitContract, BootSequence, MonochromeDisplay, PartiallyRefreshable
 {
     use SSD1306API;
 
+    protected FormatSpec $format_spec;
+
     /**
-     * @throws ScrapyardIOException
+     * @throws Exception
      */
     public function __construct(
-        protected SSD1306SignalTransport $transport,
-        int $width,
-        int $height,
+        protected SSD1306CarrierTransport $transport,
+        protected int $width,
+        protected int $height,
         protected int $_contrast,
         protected int $_start_line,
         protected int $_display_offset,
@@ -60,16 +70,31 @@ class SSD1306 extends Display implements BootSequence, MonochromeDisplay
         protected SSD1306AddressingMode $_addressing_mode,
         bool $boot_now = false,
     ) {
-        parent::__construct($width, $height);
-
-        $this->_com_pins_config = new SSD1306CompinsHWConfig(
+        $this->_com_pins_config = new SSD1306COMPinsHWConfig(
             $this->_enable_com_lr_remap,
             $this->_sequential_com_pin_config
         );
 
+        $this->format_spec = $this->_generateFormatSpec();
+
         if($boot_now) {
             $this->boot();
         }
+    }
+
+    public function width(): int
+    {
+        return $this->width;
+    }
+
+    public function height(): int
+    {
+        return $this->height;
+    }
+
+    public function formatSpec(): FormatSpec
+    {
+        return $this->format_spec;
     }
 
     /**
@@ -116,23 +141,14 @@ class SSD1306 extends Display implements BootSequence, MonochromeDisplay
         };
     }
 
-
     /**
      * @throws SSD1306Exception
      */
     public function generateFormatSpec(): FormatSpec
     {
-        return match ($this->addressing_mode) {
-            SSD1306AddressingMode::HORIZONTAL_ADDRESSING_MODE,
-            SSD1306AddressingMode::PAGE_ADDRESSING_MODE => new FormatSpec(
-                PixelFormat::MONO_VERTICAL_PAGE,
-                BitDepth::B1,
-                ScanDirection::TOP_TO_BOTTOM,
-                BitOrder::LSB_FIRST,
-                page_axis: PageAxis::VERTICAL,
-            ),
-            default => throw SSD1306Exception::unsupportedAddressingModeForFormatSpec($this->addressing_mode->name),
-        };
+        $this->format_spec = $this->_generateFormatSpec();
+
+        return $this->format_spec;
     }
 
     /**
@@ -150,11 +166,36 @@ class SSD1306 extends Display implements BootSequence, MonochromeDisplay
         $this->data($frame->raw_data);
     }
 
+    public function close(): void
+    {
+        $this->transport->close();
+    }
+
     /**
-     * @throws SSD1306Exception|ScrapyardIOException
+     * @throws SSD1306Exception
+     */
+    protected function _generateFormatSpec(): FormatSpec
+    {
+        return match ($this->_addressing_mode) {
+            SSD1306AddressingMode::HORIZONTAL_ADDRESSING_MODE,
+            SSD1306AddressingMode::PAGE_ADDRESSING_MODE => new FormatSpec(
+                PixelFormat::MONO_VERTICAL_PAGE,
+                BitDepth::B1,
+                ScanDirection::TOP_TO_BOTTOM,
+                BitOrder::LSB_FIRST,
+                page_axis: PageAxis::VERTICAL,
+            ),
+            default => throw SSD1306Exception::unsupportedAddressingModeForFormatSpec($this->_addressing_mode->name),
+        };
+    }
+
+    /**
+     * @throws SSD1306Exception
      */
     public static function i2c(
-        I2CAPI $i2c,
+        string|int $device,
+        ?string $adapter = null,
+        int $slave = SSD1306I2CAddress::SAO_GROUNDED->value,
         int $width = 128,
         int $height = 64,
         int $contrast = 191,
@@ -169,13 +210,122 @@ class SSD1306 extends Display implements BootSequence, MonochromeDisplay
         bool $reverse_line_scan_direction = false,
         SSD1306VoltageCommonHigh $v_com_h = SSD1306VoltageCommonHigh::LEVEL_077_ALT,
         SSD1306AddressingMode $addressing_mode = SSD1306AddressingMode::HORIZONTAL_ADDRESSING_MODE,
-        bool $boot_now = false,
+        bool $boot_now = true,
     ): static
     {
-        $transport = new SSD1306SignalTransport(i2c: $i2c);
+        $i2c = I2C::adapter($adapter)
+            ->device($device)
+            ->bus()
+            ->slave($slave);
 
-        return new self(
+        return static::fromI2CBus($i2c,
+            $width,
+            $height,
+            $contrast,
+            $start_line,
+            $display_offset,
+            $max_packet_size,
+            $invert_display,
+            $enable_com_lr_remap,
+            $powered_by_host_device,
+            $map_line_0_to_line_127,
+            $sequential_com_pin_config,
+            $reverse_line_scan_direction,
+            $v_com_h,
+            $addressing_mode,
+            $boot_now
+        );
+
+
+    }
+
+    /**
+     * @throws SSD1306Exception
+     * @throws Exception
+     */
+    public static function fromI2CBus(
+        I2CSlave $i2c,
+        int $width = 128,
+        int $height = 64,
+        int $contrast = 191,
+        int $start_line = 0,
+        int $display_offset = 0,
+        int $max_packet_size = 1024,
+        bool $invert_display = false,
+        bool $enable_com_lr_remap = false,
+        bool $powered_by_host_device = true,
+        bool $map_line_0_to_line_127 = false,
+        bool $sequential_com_pin_config = true,
+        bool $reverse_line_scan_direction = false,
+        SSD1306VoltageCommonHigh $v_com_h = SSD1306VoltageCommonHigh::LEVEL_077_ALT,
+        SSD1306AddressingMode $addressing_mode = SSD1306AddressingMode::HORIZONTAL_ADDRESSING_MODE,
+        bool $boot_now = true,
+    ): static
+    {
+        $transport = new SSD1306CarrierTransport(i2c: $i2c);
+
+        return new static(
             $transport,
+            $width,
+            $height,
+            $contrast,
+            $start_line,
+            $display_offset,
+            $max_packet_size,
+            $invert_display,
+            $enable_com_lr_remap,
+            $powered_by_host_device,
+            $map_line_0_to_line_127,
+            $sequential_com_pin_config,
+            $reverse_line_scan_direction,
+            $v_com_h,
+            $addressing_mode,
+            $boot_now,
+        );
+    }
+
+    /**
+     * @throws SSD1306Exception
+     */
+    public static function spi(
+        string|int $spi_device,
+        string|int $chip_select,
+        string|int $digital_device,
+        int $dc_pin,
+        int $rst_pin,
+        ?string $spi_adapter = null,
+        ?string $digital_adapter = null,
+        int $width = 128,
+        int $height = 64,
+        int $contrast = 191,
+        int $start_line = 0,
+        int $display_offset = 0,
+        int $max_packet_size = 1024,
+        bool $invert_display = false,
+        bool $enable_com_lr_remap = false,
+        bool $powered_by_host_device = true,
+        bool $map_line_0_to_line_127 = false,
+        bool $sequential_com_pin_config = true,
+        bool $reverse_line_scan_direction = false,
+        SSD1306VoltageCommonHigh $v_com_h = SSD1306VoltageCommonHigh::LEVEL_077_ALT,
+        SSD1306AddressingMode $addressing_mode = SSD1306AddressingMode::HORIZONTAL_ADDRESSING_MODE,
+        bool $boot_now = true,
+    ): static
+    {
+        $bus = SPI::adapter($spi_adapter)->device($spi_device)
+            ->mode(3)->speed(1000000)->bus();
+
+        $spi = $bus->select($chip_select);
+
+        if(!$bus->canServeDigitalPins())
+        {
+            $bus = DigitalIO::adapter($digital_adapter)->device($digital_device)->bus();
+        }
+
+        $dc = $bus->output($dc_pin);
+        $rst = $bus->output($rst_pin);
+
+        return static::fromSPIBus($spi, $dc, $rst,
             $width,
             $height,
             $contrast,
@@ -195,12 +345,13 @@ class SSD1306 extends Display implements BootSequence, MonochromeDisplay
     }
 
     /**
-     * @throws SSD1306Exception|ScrapyardIOException
+     * @throws SSD1306Exception
+     * @throws Exception
      */
-    public static function spi(
-        SPIAPI $spi,
-        DigitalOutput $dc,
-        DigitalOutput $rst,
+    public static function fromSPIBus(
+        SPIDevice $spi,
+        DigitalOutputPin $dc,
+        DigitalOutputPin $rst,
         int $width = 128,
         int $height = 64,
         int $contrast = 191,
@@ -215,11 +366,12 @@ class SSD1306 extends Display implements BootSequence, MonochromeDisplay
         bool $reverse_line_scan_direction = false,
         SSD1306VoltageCommonHigh $v_com_h = SSD1306VoltageCommonHigh::LEVEL_077_ALT,
         SSD1306AddressingMode $addressing_mode = SSD1306AddressingMode::HORIZONTAL_ADDRESSING_MODE,
-        bool $boot_now = false,
+        bool $boot_now = true,
     ): static
     {
-        $transport = new SSD1306SignalTransport(spi: $spi, dc: $dc, rst: $rst);
-        return new self(
+        $transport = new SSD1306CarrierTransport(spi: $spi, dc: $dc, rst: $rst);
+
+        return new static(
             $transport,
             $width,
             $height,
@@ -235,9 +387,7 @@ class SSD1306 extends Display implements BootSequence, MonochromeDisplay
             $reverse_line_scan_direction,
             $v_com_h,
             $addressing_mode,
-            $boot_now
+            $boot_now,
         );
     }
-
-
 }

@@ -2,28 +2,29 @@
 
 namespace DeptOfScrapyardRobotics\Displays\SSD1306;
 
-use BareMetal\Contracts\Displays\DataCommandTransfers;
-use GPIO\Contracts\I2C\I2CAPI;
-use GPIO\Contracts\SPI\SPIAPI;
-use GPIO\Common\SignalTransporter;
-use GPIO\Digital\Output\DigitalOutput;
+use DeptOfScrapyardRobotics\Displays\SSD1306\Concerns\SSD1306IO;
+use GeneralPurposeIO\Digital\DigitalOutputPin;
+use GeneralPurposeIO\I2C\I2CSlave;
+use GeneralPurposeIO\SPI\SPIDevice;
 
-class SSD1306SignalTransport extends SignalTransporter implements DataCommandTransfers
+class SSD1306CarrierTransport
 {
     use SSD1306IO;
 
     protected int $max_packet_size = 1024;
 
+    public readonly string $active_transport;
+
     /**
      * @throws SSD1306Exception
      */
     public function __construct(
-        protected ?I2CAPI $i2c = null,
-        protected ?SPIAPI $spi = null,
-        protected ?DigitalOutput $dc = null,
-        protected ?DigitalOutput $rst = null,
+        protected ?I2CSlave $i2c = null,
+        protected ?SPIDevice $spi = null,
+        protected ?DigitalOutputPin $dc = null,
+        protected ?DigitalOutputPin $rst = null,
     ) {
-        parent::__construct($this->detectTransport());
+        $this->active_transport = $this->detectTransport();
     }
 
     public function command(int $register, array $command_data = []): int
@@ -42,8 +43,7 @@ class SSD1306SignalTransport extends SignalTransporter implements DataCommandTra
 
     public function reset(): void
     {
-        if ($this->active_transport == 'spi')
-        {
+        if ($this->active_transport == 'spi') {
             $this->rst->high();
             usleep(3000);
 
@@ -55,16 +55,30 @@ class SSD1306SignalTransport extends SignalTransporter implements DataCommandTra
         }
     }
 
+    public function maxPacketSize(int $size): static
+    {
+        $this->max_packet_size = $size;
+
+        return $this;
+    }
+
+    public function close(): void
+    {
+        $this->i2c?->close();
+        $this->spi?->close();
+        $this->dc?->close();
+        $this->rst?->close();
+    }
+
     /**
      * @throws SSD1306Exception
      */
     protected function detectTransport(): string
     {
-        if(!is_null($this->i2c)) {
+        if (! is_null($this->i2c)) {
             return 'i2c';
-        }
-        elseif(!is_null($this->spi)) {
-            if((!is_null($this->dc)) && (!is_null($this->rst))) {
+        } elseif (! is_null($this->spi)) {
+            if ((! is_null($this->dc)) && (! is_null($this->rst))) {
                 return 'spi';
             }
 

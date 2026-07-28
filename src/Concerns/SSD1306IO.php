@@ -1,9 +1,6 @@
 <?php
 
-namespace DeptOfScrapyardRobotics\Displays\SSD1306;
-
-use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306OpCode;
-use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306StartLineCommand;
+namespace DeptOfScrapyardRobotics\Displays\SSD1306\Concerns;
 
 trait SSD1306IO
 {

@@ -1,9 +1,10 @@
 {
     "name": "dept-of-scrapyard-robotics/ssd1306",
-    "description": "Drive SSD1306 Monochrome Displays over I2C/SPI with PHP",
+    "description": "Drive SSD1306 monochrome OLED displays over I2C/SPI with PHP",
     "type": "library",
-    "version": "0.5.0",
+    "version": "0.6.0",
     "keywords": [
+        "ssd1306",
         "framework",
         "scrapyard-io"
     ],
@@ -17,22 +18,20 @@
     ],
     "require": {
         "php": "^8.3",
-        "waveforms/i2c": "^0.5.0",
-        "waveforms/spi": "^0.5.0",
-        "waveforms/digital": "^0.5.0",
-        "bare-metal/circuits": "^0.5.0",
-        "bare-metal/displays": "^0.5.0",
-        "bare-metal/contracts": "^0.5.0",
-        "scrapyard-io/nuts-and-bolts": "^0.5.0"
+        "fabricate/circuits": "^0.6.0",
+        "fabricate/contracts": "^0.6.0",
+        "fabricate/displays": "^0.6.0",
+        "fabricate/framebuffers": "^0.6.0",
+        "gpio/i2c": "^0.6.0",
+        "gpio/spi": "^0.6.0",
+        "gpio/digital": "^0.6.0",
+        "gpio/contracts": "^0.6.0"
     },
     "suggest": {
-        "ext-posi": "^0.4.0",
-        "ext-ftdi": "^0.4.0",
+        "ext-posi": "^0.5.0",
+        "ext-ftdi": "^0.5.0",
         "microscrap/posix": "^0.5.0",
-        "microscrap/mpsse": "^0.5.0",
-        "microscrap/gpio": "^0.5.0",
-        "microscrap/i2c": "^0.5.0",
-        "microscrap/spi": "^0.5.0"
+        "microscrap/mpsse": "^0.5.0"
     },
     "autoload": {
         "psr-4": {
@@ -42,6 +41,13 @@
     "autoload-dev": {
         "psr-4": {
             "DeptOfScrapyardRobotics\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "scrapyard-io": {
+            "providers": [
+                "DeptOfScrapyardRobotics\\Displays\\SSD1306\\Providers\\SSD1306ServiceProvider"
+            ]
         }
     },
     "config": {

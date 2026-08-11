@@ -34,7 +34,10 @@ class SSD1306CarrierTransport
             : $this->spiCommand($register, $command_data);
     }
 
-    public function data(array $data = []): void
+    /**
+     * @param  array<int, int>|string  $data
+     */
+    public function data(array|string $data = []): void
     {
         $this->active_transport == 'i2c'
             ? $this->i2cData($data)

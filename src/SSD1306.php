@@ -8,24 +8,25 @@ use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306AddressingMode;
 use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306I2CAddress;
 use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306VoltageCommonHigh;
 use Exception;
-use Fabricate\Contracts\Circuits\Attributes\IntegratedCircuit;
-use Fabricate\Contracts\Circuits\IntegratedCircuit as CircuitContract;
-use Fabricate\Contracts\Displays\Interfaces\MonochromeDisplay;
-use Fabricate\Contracts\Displays\Interfaces\PartiallyRefreshable;
-use Fabricate\Contracts\Framebuffers\Enums\BitDepth;
-use Fabricate\Contracts\Framebuffers\Enums\BitOrder;
-use Fabricate\Contracts\Framebuffers\Enums\PageAxis;
-use Fabricate\Contracts\Framebuffers\Enums\PixelFormat;
-use Fabricate\Contracts\Framebuffers\Enums\ScanDirection;
-use Fabricate\Contracts\NutsAndBolts\BootSequence;
-use Fabricate\Framebuffers\DataObjects\DumpedBuffer;
-use Fabricate\Framebuffers\FormatSpec;
+use GeneralPurposeIO\Circuits\Types\DisplayPanel;
+use GeneralPurposeIO\Contracts\Circuits\Attributes\IntegratedCircuit;
+use GeneralPurposeIO\Contracts\Circuits\Attributes\Pinout;
+use GeneralPurposeIO\Contracts\Circuits\BootSequence;
 use GeneralPurposeIO\Digital\DigitalIO;
 use GeneralPurposeIO\Digital\DigitalOutputPin;
 use GeneralPurposeIO\I2C\I2C;
 use GeneralPurposeIO\I2C\I2CSlave;
 use GeneralPurposeIO\SPI\SPI;
 use GeneralPurposeIO\SPI\SPIDevice;
+use ScrapyardIO\Tubes\Contracts\Core\SupportsPartialRefresh;
+use ScrapyardIO\Tubes\Contracts\Framebuffers\DumpedBuffer;
+use ScrapyardIO\Tubes\Contracts\Framebuffers\Enums\BitDepth;
+use ScrapyardIO\Tubes\Contracts\Framebuffers\Enums\BitOrder;
+use ScrapyardIO\Tubes\Contracts\Framebuffers\Enums\PageAxis;
+use ScrapyardIO\Tubes\Contracts\Framebuffers\Enums\PixelFormat;
+use ScrapyardIO\Tubes\Contracts\Framebuffers\Enums\ScanDirection;
+use ScrapyardIO\Tubes\Contracts\Framebuffers\FormatSpec;
+use ScrapyardIO\Tubes\Contracts\Panels\MonochromeDisplay;
 
 /**
  * @property bool $display_on
@@ -42,8 +43,12 @@ use GeneralPurposeIO\SPI\SPIDevice;
  * @property bool $fill_overlay_on
  * @property-write bool $invert_display
  */
-#[IntegratedCircuit('I2C', 'SPI')]
-class SSD1306 implements CircuitContract, BootSequence, MonochromeDisplay, PartiallyRefreshable
+#[IntegratedCircuit('I2C', ['SPI', 'DigitalIO'])]
+#[Pinout(
+    ['I2C' => ['driver', 'device', 'slave']],
+    ['SPI' => ['driver', 'device', 'chip_select'], 'DigitalIO' => ['driver', 'device', 'dc', 'rst']],
+)]
+class SSD1306 extends DisplayPanel implements BootSequence, MonochromeDisplay, SupportsPartialRefresh
 {
     use SSD1306API;
 

@@ -6,7 +6,7 @@ use DeptOfScrapyardRobotics\Displays\SSD1306\Breakouts\SSD1306DataClock;
 use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306OpCode;
 use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306StartLineCommand;
 use DeptOfScrapyardRobotics\Displays\SSD1306\SSD1306Exception;
-use Fabricate\Contracts\NutsAndBolts\BootScaffolding;
+use GeneralPurposeIO\Contracts\Circuits\BootScaffolding;
 
 trait SSD1306InternalAPI
 {
@@ -17,7 +17,10 @@ trait SSD1306InternalAPI
         return $this->transport->command($register->value, $command_data);
     }
 
-    protected function data(array $data = []): void
+    /**
+     * @param  array<int, int>|string  $data
+     */
+    protected function data(array|string $data = []): void
     {
         $this->transport->data($data);
     }

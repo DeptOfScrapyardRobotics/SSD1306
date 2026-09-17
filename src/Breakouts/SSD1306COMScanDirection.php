@@ -2,7 +2,7 @@
 
 namespace DeptOfScrapyardRobotics\Displays\SSD1306\Breakouts;
 
-use GeneralPurposeIO\Circuits\DataRegister;
+use GeneralPurposeIO\IntegratedCircuits\DataRegister;
 use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306OpCode;
 
 readonly class SSD1306COMScanDirection extends DataRegister

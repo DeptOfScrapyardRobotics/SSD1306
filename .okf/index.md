@@ -2,30 +2,25 @@
 okf_version: "0.2"
 ---
 
-# dept-of-scrapyard-robotics/ssd1306 Knowledge Bundle
+# dept-of-scrapyard-robotics/ssd1306 — knowledge bundle
 
-Package knowledge for `dept-of-scrapyard-robotics/ssd1306` (SSD1306 OLED driver, v0.7.x).
-Read this index first; open only the concepts needed for the task.
+SSD1306 monochrome OLED driver for `scrapyard-io/framework` 0.8. I2C or SPI, datasheet boot from a configuration object, page-windowed frame writes, `FormatSpec` for Surface CPU engines.
 
-**Trust rule:** Prefer `status: stable`. Treat `deprecated` as historical only. New agent-written concepts stay `status: draft` until a human verifies them.
-**Placement:** Package-root `.okf/` only — never under `src/`.
-**Links:** Concept cross-links use paths relative to each file.
-**Scope:** This package’s IC surface, Circuits catalog registration, profiles, and smoke sketch. Registry semantics live in `scrapyard-io/gpio-framework` — do not duplicate that bundle here.
-**Dist note:** `.okf/` and root `AGENTS.md` are `export-ignore` in `.gitattributes`.
+Read this index first, open only concepts task needs. Every concept `status: draft` until human verifies.
 
-# Orientation
+# Concepts
 
-* [Package (0.7)](orientation/package.md) - Composer identity, namespace, provider, dependencies.
-
-# Core
-
-* [SSD1306 IC](core/ssd1306.md) - DisplayPanel class, attributes, factories, tubes FormatSpec/transmit.
-* [Circuits integration](core/circuits.md) - Catalog slug, make-profile, profiles, smoke sketch.
+* [overview.md](/overview.md) - package identity, requires, classes, boot sequence, errors
+* [connecting.md](/connecting.md) - I2C and SPI transports, control bytes, DC/RST, addresses
+* [configuration-object.md](/configuration-object.md) - SSD1306Configuration fields, get/set, COM pins byte
+* [drawing.md](/drawing.md) - FormatSpec, packing, transmit() windows, timings
+* [settings.md](/settings.md) - property names, setter methods, state kept in configuration
+* [wiring-config.md](/wiring-config.md) - circuits.ssd1306 keys, publish tag
 
 # Traps
 
-* [Fabricate leftovers](traps/fabricate-leftovers.md) - Use GeneralPurposeIO Circuits + tubes framebuffers; not Fabricate Displays/Circuits.
+* [traps/](/traps/index.md) - COM pins naming, get/set name pairs, horizontal addressing only, unchecked writes
 
 # Log
 
-* [Directory update log](log.md)
+* [log.md](/log.md)

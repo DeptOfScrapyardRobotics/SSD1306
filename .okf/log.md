@@ -1,10 +1,4 @@
-# Directory Update Log
+# dept-of-scrapyard-robotics/ssd1306 Update Log
 
-## 2026-08-11
-
-* **Fix (draft)**: Composer `require` uses leaf components (`gpio/*`, `waveforms/contracts` or `tubes/contracts`, `fabricate/nuts-and-bolts`) — no `scrapyard-io/gpio-framework` / `scrapyard-io/waveforms` / `scrapyard-io/tubes` kitchen sinks. Amended [package](orientation/package.md).
-
-## 2026-08-10
-
-* **Update (draft)**: [SSD1306 IC](core/ssd1306.md) — implements tubes `Contracts\Panels\MonochromeDisplay` for PanelIC wrap.
-* **Creation**: Initial `.okf` for `dept-of-scrapyard-robotics/ssd1306` 0.7 — package orientation, IC surface (I2C/SPI factories, tubes FormatSpec), Circuits registration/profiles/smoke, Fabricate leftovers trap, lean `AGENTS.md`, package `README.md`.
+## 2026-09-16
+* **Creation**: bundle seeded for 0.8.0 — [overview](/overview.md), [connecting](/connecting.md), [configuration-object](/configuration-object.md), [drawing](/drawing.md), [settings](/settings.md), [wiring-config](/wiring-config.md), four [traps](/traps/index.md).

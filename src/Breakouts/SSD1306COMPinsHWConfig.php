@@ -2,7 +2,7 @@
 
 namespace DeptOfScrapyardRobotics\Displays\SSD1306\Breakouts;
 
-use GeneralPurposeIO\Circuits\DataRegister;
+use GeneralPurposeIO\IntegratedCircuits\DataRegister;
 
 readonly class SSD1306COMPinsHWConfig extends DataRegister
 {

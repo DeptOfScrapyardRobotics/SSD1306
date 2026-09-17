@@ -1,11 +1,14 @@
 {
     "name": "dept-of-scrapyard-robotics/ssd1306",
-    "description": "Drive SSD1306 monochrome OLED displays over I2C/SPI with PHP",
+    "description": "Drive SSD1306 monochrome OLED displays over I2C or SPI with the ScrapyardIO GPIO framework.",
     "type": "library",
-    "version": "0.7.0",
+    "version": "0.8.0",
     "keywords": [
         "ssd1306",
         "oled",
+        "display",
+        "i2c",
+        "spi",
         "scrapyard-io"
     ],
     "license": "MIT",
@@ -18,19 +21,26 @@
     ],
     "require": {
         "php": "^8.4|^8.5|^8.6",
-        "fabricate/nuts-and-bolts": "^0.7.0",
-        "gpio/circuits": "^0.7.0",
-        "gpio/contracts": "^0.7.0",
-        "gpio/digital": "^0.7.0",
-        "gpio/i2c": "^0.7.0",
-        "gpio/spi": "^0.7.0",
-        "tubes/contracts": "^0.7.0"
+        "gpio/contracts": "^0.8.0",
+        "gpio/integrated-circuits": "^0.8.0",
+        "gpio/nuts-and-bolts": "^0.8.0",
+        "surface/contracts": "^0.8.0",
+        "venusian-voyager/nuts-and-bolts": "^0.8.0"
+    },
+    "require-dev": {
+        "gpio/digital": "^0.8.0",
+        "gpio/i2c": "^0.8.0",
+        "gpio/spi": "^0.8.0",
+        "pestphp/pest": "^4",
+        "venusian-voyager/config": "^0.8.0",
+        "venusian-voyager/vessel": "^0.8.0"
     },
     "suggest": {
-        "ext-posi": "^0.7.0",
-        "ext-ftdi": "^0.7.0",
-        "microscrap/posix": "^0.7.0",
-        "microscrap/mpsse": "^0.7.0"
+        "gpio/digital": "^0.8.0 - DC and RST pins for SSD1306SPITransport",
+        "gpio/i2c": "^0.8.0 - I2C connections for SSD1306I2CTransport",
+        "gpio/spi": "^0.8.0 - SPI connections for SSD1306SPITransport",
+        "microscrap/scrapyard-linux": "^0.8.0 - native i2c-dev, spidev and libgpiod drivers",
+        "microscrap/scrapyard-usb": "^0.8.0 - MPSSE I2C, SPI and pins over FTDI"
     },
     "autoload": {
         "psr-4": {
@@ -39,22 +49,73 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "DeptOfScrapyardRobotics\\Tests\\": "tests/"
+            "DeptOfScrapyardRobotics\\Displays\\SSD1306\\Tests\\": "tests/"
         }
     },
     "extra": {
         "branch-alias": {
-            "dev-master": "0.7.x-dev"
+            "dev-main": "0.8.x-dev"
         },
-        "scrapyard-io": {
+        "venusian": {
             "providers": [
-                "DeptOfScrapyardRobotics\\Displays\\SSD1306\\SSD1306ServiceProvider"
+                "DeptOfScrapyardRobotics\\Displays\\SSD1306\\Providers\\SSD1306ServiceProvider"
             ]
         }
     },
     "config": {
-        "sort-packages": true
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
     },
     "minimum-stability": "dev",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "repositories": [
+        {
+            "type": "path",
+            "url": "/Volumes/ProjectSaturnStudios/Development/PHP/ProjectSaturnStudios/dev/scrapyard-io/framework/src/GeneralPurposeIO/*",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "gpio/contracts": "0.8.0",
+                    "gpio/digital": "0.8.0",
+                    "gpio/i2c": "0.8.0",
+                    "gpio/integrated-circuits": "0.8.0",
+                    "gpio/nuts-and-bolts": "0.8.0",
+                    "gpio/pwm": "0.8.0",
+                    "gpio/spi": "0.8.0",
+                    "gpio/uart": "0.8.0"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "/Volumes/ProjectSaturnStudios/Development/PHP/ProjectSaturnStudios/dev/venusian/framework/src/Voyager/*",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "venusian-voyager/collections": "0.8.8",
+                    "venusian-voyager/conditionable": "0.8.8",
+                    "venusian-voyager/config": "0.8.8",
+                    "venusian-voyager/contracts": "0.8.8",
+                    "venusian-voyager/io-pools": "0.8.8",
+                    "venusian-voyager/macroable": "0.8.8",
+                    "venusian-voyager/magic-aliases": "0.8.8",
+                    "venusian-voyager/nuts-and-bolts": "0.8.8",
+                    "venusian-voyager/reflection": "0.8.8",
+                    "venusian-voyager/vessel": "0.8.8"
+                }
+            }
+        },
+        {
+            "type": "path",
+            "url": "/Volumes/ProjectSaturnStudios/Development/PHP/ProjectSaturnStudios/dev/venusian/surface/src/Surface/Contracts",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "surface/contracts": "0.8.0"
+                }
+            }
+        }
+    ]
 }

@@ -2,7 +2,7 @@
 
 namespace DeptOfScrapyardRobotics\Displays\SSD1306;
 
-use GeneralPurposeIO\Contracts\Circuits\CircuitException;
+use GeneralPurposeIO\Contracts\IntegratedCircuits\CircuitException;
 
 class SSD1306Exception extends CircuitException
 {

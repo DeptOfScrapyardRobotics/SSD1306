@@ -11,7 +11,7 @@ sources:
     title: SSD1306::transmit() / formatSpec()
   - id: api
     resource: src/Concerns/SSD1306API.php
-    title: SSD1306API::setAddressWindow()
+    title: SSD1306API::setAddressWindow() / setPagePosition()
   - id: formatspec
     resource: venusian/surface:src/Surface/Contracts/Framebuffers/FormatSpec.php
     title: Surface FormatSpec
@@ -19,7 +19,7 @@ sources:
 
 # FormatSpec
 
-`formatSpec()` → `MONO_VERTICAL_PAGE`, `B1`, `TOP_TO_BOTTOM`, `LSB_FIRST`, `PageAxis::VERTICAL`. Built at boot and on each `setMemoryAddressingMode()` (horizontal + page; vertical throws).[^panel] Same values on class `#[FormatSpec]` attribute. Type from `surface/contracts`.[^formatspec]
+`formatSpec()` → `MONO_VERTICAL_PAGE`, `B1`, `TOP_TO_BOTTOM`, `LSB_FIRST`, `PageAxis::VERTICAL`. One spec for every addressing mode; caller packs the same bytes whatever the mode.[^panel] Type from `surface/contracts`.[^formatspec]
 
 # Packing
 
@@ -41,18 +41,24 @@ for ($page = 0; $page < intdiv($h + 7, 8); $page++) {
 
 # transmit()
 
-`transmit(int $origin_x, int $origin_y, array $raw_data, ?int $frame_width = null, ?int $frame_height = null)` → `setAddressWindow()` → `data()`.[^panel]
+`transmit(int $origin_x, int $origin_y, array $raw_data, ?int $frame_width = null, ?int $frame_height = null)`, per addressing mode:[^panel]
 
-Window:[^api] `21 x, x+w-1` · `22 y>>3, (y+h-1)>>3`. Rows page-aligned. Byte count = w × pages.
+| Mode | Traffic |
+|---|---|
+| horizontal | `setAddressWindow()` → `data(bytes)` |
+| vertical | `setAddressWindow()` → `data(bytes reordered column-major)` |
+| page | per page: `setPagePosition(x, page)` (`0x0L`, `0x1H`, `0xB0 \| page`) → `data(row)` |
+
+Window:[^api] `21 x, x+w-1` · `22 y>>3, (y+h-1)>>3`. Rows page-aligned. Byte count = w × pages. `INVALID` mode refused by `setMemoryAddressingMode()`.
 
 # Live reference
 
-Pi 5 native I2C, 1024-byte packets: full frame 28.4 ms, 4-page window 14.5 ms.
+Pi 5 native I2C, 1024-byte packets: full frame 28 ms horizontal / 28 ms vertical / 31 ms page; 40×24 window 4–5 ms.
 
 # Related
 
-* [traps/horizontal-addressing-only](/traps/horizontal-addressing-only.md) · [connecting](/connecting.md)
+* [connecting](/connecting.md) · [settings](/settings.md)
 
 [^panel]: SSD1306::transmit() / formatSpec()
-[^api]: SSD1306API::setAddressWindow()
+[^api]: SSD1306API::setAddressWindow() / setPagePosition()
 [^formatspec]: Surface FormatSpec

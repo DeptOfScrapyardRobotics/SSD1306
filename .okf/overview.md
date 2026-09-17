@@ -51,7 +51,7 @@ Suggests: `gpio/i2c`, `gpio/spi`, `gpio/digital`, `microscrap/scrapyard-linux` (
 
 | Class | Role |
 |---|---|
-| `SSD1306` | panel; `Bootable` + `DisplayPanel`; class carries `#[FormatSpec]` attribute[^panel] |
+| `SSD1306` | panel; `Bootable` + `DisplayPanel`; `formatSpec()` fixed for every addressing mode[^panel] |
 | `SSD1306Configuration` | size + every setting; the panel's state |
 | `Transports\SSD1306I2CTransport` | wraps `I2CTransport` |
 | `Transports\SSD1306SPITransport` | wraps `SPITransport` + DC + RST `DigitalOutTransport` |
@@ -76,7 +76,7 @@ Suggests: `gpio/i2c`, `gpio/spi`, `gpio/digital`, `microscrap/scrapyard-linux` (
 | `invalidOffset` | offset outside 0–63 |
 | `invalidStartLine` | start line outside 0–63 |
 | `invalidContrast` | contrast outside 0–255 |
-| `unsupportedAddressingModeForFormatSpec` | vertical / invalid addressing mode |
+| `invalidAddressingMode` | `SSD1306AddressingMode::INVALID` |
 | `invalidProperty` | unknown magic property or configuration key |
 
 # Live reference

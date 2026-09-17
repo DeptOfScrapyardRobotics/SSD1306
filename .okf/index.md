@@ -19,7 +19,7 @@ Read this index first, open only concepts task needs. Every concept `status: dra
 
 # Traps
 
-* [traps/](/traps/index.md) - COM pins naming, get/set name pairs, horizontal addressing only, unchecked writes
+* [traps/](/traps/index.md) - COM pins naming, get/set name pairs, unchecked writes
 
 # Log
 

@@ -16,6 +16,7 @@ Do **not** create `.okf` folders under `src/*` — knowledge for this package li
 - **Requires split components only**: `gpio/contracts`, `gpio/integrated-circuits`, `gpio/nuts-and-bolts`, `surface/contracts`, `venusian-voyager/nuts-and-bolts`. Never `scrapyard-io/framework`, `venusian/framework` or `venusian/surface`. Protocol components and adapters are `suggest`.
 - **Panel = `Bootable` + `DisplayPanel`.** Boot runs the datasheet init sequence from `SSD1306Configuration`. `close()` releases DC and RST on SPI only; bus connections belong to their driver.
 - **The panel owns no pixels.** It exposes `formatSpec()` (mono, vertical page, LSB first) and `transmit()` takes bytes already packed to it. Packing lives in Surface.
+- **Addressing mode is the panel's problem, never the caller's.** One `FormatSpec` for every mode; `transmit()` places and orders the same bytes for horizontal (window), vertical (window, column-major) and page (`setPagePosition()` per page) mode.
 - **`SSD1306Configuration` is the state.** Every setter writes the chip and then the configuration; properties read the configuration, never the chip (the SSD1306 has no readable registers over these transports).
 - **Transports** wrap a framework `I2CTransport` (control byte `0x00` command / `0x40` data) or `SPITransport` + DC + RST `DigitalOutTransport`s, chunked by `max_packet_size`.
 - **Register breakouts** are `readonly` `DataRegister`s from `gpio/integrated-circuits`.

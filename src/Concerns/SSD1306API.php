@@ -96,6 +96,10 @@ trait SSD1306API
      */
     public function setMemoryAddressingMode(SSD1306AddressingMode $mode): void
     {
+        if ($mode === SSD1306AddressingMode::INVALID) {
+            throw SSD1306Exception::invalidAddressingMode($mode->name);
+        }
+
         $this->sendCommand(SSD1306OpCode::ADDRESS_MODE_REGISTER, [$mode->value]);
         $this->config()->set('addressing_mode', $mode);
 
@@ -182,16 +186,19 @@ trait SSD1306API
         return $this->config()->get('addressing_mode');
     }
 
-    /**
-     * Point the auto-incrementing RAM pointer at a column/page rectangle.
-     *
-     * Valid for horizontal/vertical addressing modes (the 0x21/0x22 registers).
-     * Page addressing mode (0x02) would need per-page B0-B7 commands instead.
-     */
+    /** Point the RAM pointer at a column/page rectangle (horizontal and vertical modes). */
     public function setAddressWindow(int $x, int $y, int $width, int $height): void
     {
         $this->sendCommand(SSD1306OpCode::SET_COLUMN_ADDRESS, [$x, ($x + $width) - 1]);
         $this->sendCommand(SSD1306OpCode::SET_PAGE_ADDRESS, [$y >> 3, (($y + $height) - 1) >> 3]);
+    }
+
+    /** Point the RAM pointer at a column of one page (page mode): lower nibble, upper nibble, page. */
+    public function setPagePosition(int $x, int $page): void
+    {
+        $this->transport()->command(SSD1306OpCode::PAGE_MODE_LOWER_COLUMN->value | ($x & 0x0F));
+        $this->transport()->command(SSD1306OpCode::PAGE_MODE_UPPER_COLUMN->value | (($x >> 4) & 0x0F));
+        $this->transport()->command(SSD1306OpCode::PAGE_MODE_PAGE_START->value | ($page & 0x07));
     }
 
     public function setDisplay(bool $on): void

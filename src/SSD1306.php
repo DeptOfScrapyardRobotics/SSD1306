@@ -41,13 +41,69 @@ class SSD1306 extends Bootable implements DisplayPanel, FormatSpecification
         return $this->props->get('height');
     }
 
+    /**
+     * Write bytes packed per formatSpec() into the rectangle at (x, y). The
+     * bytes are the same in every addressing mode; the panel positions and
+     * orders them for the mode it is in. y and height round to 8-row pages.
+     */
     public function transmit(int $origin_x, int $origin_y, array $raw_data, ?int $frame_width = null, ?int $frame_height = null): void
     {
         $width = $frame_width ?? $this->width();
         $height = $frame_height ?? $this->height();
+        $bytes = array_values($raw_data);
 
-        $this->setAddressWindow($origin_x, $origin_y, $width, $height);
-        $this->transport()->data($raw_data);
+        match ($this->getAddressingMode()) {
+            SSD1306AddressingMode::HORIZONTAL_ADDRESSING_MODE => $this->transmitWindow($origin_x, $origin_y, $width, $height, $bytes),
+            SSD1306AddressingMode::VERTICAL_ADDRESSING_MODE => $this->transmitWindow($origin_x, $origin_y, $width, $height, $this->columnMajor($bytes, $width)),
+            SSD1306AddressingMode::PAGE_ADDRESSING_MODE => $this->transmitPages($origin_x, $origin_y, $width, $height, $bytes),
+            SSD1306AddressingMode::INVALID => throw SSD1306Exception::invalidAddressingMode(SSD1306AddressingMode::INVALID->name),
+        };
+    }
+
+    /** Horizontal and vertical modes: one column/page window, one stream. */
+    protected function transmitWindow(int $x, int $y, int $width, int $height, array $bytes): void
+    {
+        $this->setAddressWindow($x, $y, $width, $height);
+        $this->transport()->data($bytes);
+    }
+
+    /** Page mode: the chip ignores the window, so place and send each page on its own. */
+    protected function transmitPages(int $x, int $y, int $width, int $height, array $bytes): void
+    {
+        $first_page = $y >> 3;
+        $last_page = ($y + $height - 1) >> 3;
+
+        foreach (array_chunk($bytes, max(1, $width)) as $offset => $row) {
+            if ($first_page + $offset > $last_page) {
+                break;
+            }
+
+            $this->setPagePosition($x, $first_page + $offset);
+            $this->transport()->data($row);
+        }
+    }
+
+    /**
+     * Rows of pages (page-major) → columns of pages (column-major), the order
+     * the RAM pointer walks in vertical mode.
+     *
+     * @param  list<int>  $bytes
+     * @return list<int>
+     */
+    protected function columnMajor(array $bytes, int $width): array
+    {
+        $rows = array_chunk($bytes, max(1, $width));
+        $out = [];
+
+        for ($column = 0; $column < $width; $column++) {
+            foreach ($rows as $row) {
+                if (isset($row[$column])) {
+                    $out[] = $row[$column];
+                }
+            }
+        }
+
+        return $out;
     }
 
     public function transport(): SSD1306DataTransport
@@ -66,7 +122,7 @@ class SSD1306 extends Bootable implements DisplayPanel, FormatSpecification
         return $this->props;
     }
 
-    /** How the panel wants its bytes packed, for the addressing mode it is in. Set at boot. */
+    /** How transmit() wants its bytes packed. The same in every addressing mode. */
     public function formatSpec(): FormatSpec
     {
         return $this->format_spec;
@@ -79,18 +135,12 @@ class SSD1306 extends Bootable implements DisplayPanel, FormatSpecification
 
     public function generateFormatSpec(): FormatSpec
     {
-        /** @var SSD1306AddressingMode $addressing_mode */
-        $addressing_mode = $this->props->get('addressing_mode');
-        return match ($addressing_mode) {
-            SSD1306AddressingMode::HORIZONTAL_ADDRESSING_MODE,
-            SSD1306AddressingMode::PAGE_ADDRESSING_MODE => new FormatSpec(
-                PixelFormat::MONO_VERTICAL_PAGE,
-                BitDepth::B1,
-                ScanDirection::TOP_TO_BOTTOM,
-                BitOrder::LSB_FIRST,
-                page_axis: PageAxis::VERTICAL,
-            ),
-            default => throw SSD1306Exception::unsupportedAddressingModeForFormatSpec($addressing_mode->name),
-        };
+        return new FormatSpec(
+            PixelFormat::MONO_VERTICAL_PAGE,
+            BitDepth::B1,
+            ScanDirection::TOP_TO_BOTTOM,
+            BitOrder::LSB_FIRST,
+            page_axis: PageAxis::VERTICAL,
+        );
     }
 }

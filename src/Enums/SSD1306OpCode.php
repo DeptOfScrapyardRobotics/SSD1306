@@ -4,6 +4,8 @@ namespace DeptOfScrapyardRobotics\Displays\SSD1306\Enums;
 
 enum SSD1306OpCode: int
 {
+    case PAGE_MODE_LOWER_COLUMN = 0x00;
+    case PAGE_MODE_UPPER_COLUMN = 0x10;
     case ADDRESS_MODE_REGISTER = 0x20;
     case SET_COLUMN_ADDRESS = 0x21;
     case SET_PAGE_ADDRESS = 0x22;
@@ -19,6 +21,7 @@ enum SSD1306OpCode: int
     case INVERT_DISPLAY_OFF = 0xA6;
     case INVERT_DISPLAY_ON = 0xA7;
     case MUX_REGISTER = 0xA8;
+    case PAGE_MODE_PAGE_START = 0xB0;
     case TOGGLE_DISPLAY_OFF = 0xAE;
     case TOGGLE_DISPLAY_ON = 0xAF;
 

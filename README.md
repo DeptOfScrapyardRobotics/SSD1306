@@ -186,7 +186,7 @@ $panel->transmit(0, 16, $four_pages_of_bytes, 128, 32);
 
 On a Raspberry Pi 5 over native I2C, a full frame takes about 28 ms and four pages about 15 ms.
 
-`transmit()` needs horizontal addressing, which is the boot default. The chip ignores the window commands in page addressing mode, and the panel throws if you switch to vertical addressing, because that mode has no `FormatSpec`.
+`transmit()` takes the same bytes in every addressing mode. In horizontal and vertical mode it opens the window and streams them, reordering column by column for vertical. In page mode it places each page and sends that page's row. On a Raspberry Pi 5, a full frame takes about 28 ms in horizontal and vertical mode and 31 ms in page mode.
 
 ## Settings
 
@@ -221,14 +221,14 @@ The driver never reads the chip, so every read returns the value the configurati
 | `powered_by_host_device` | `powered_by_host_device` | `bool` |
 | `v_com_h` | `v_com_h` | `SSD1306VoltageCommonHigh` |
 
-The same settings are available as methods: `displayOn()`, `displayOff()`, `setDisplay()`, `setContrast()`, `setDisplayOffset()`, `setDisplayStartLine()`, `setMultiplexRatio()`, `setChargePumpRegulator()`, `setMemoryAddressingMode()`, `setSegmentRemap()`, `setCOMOutputScanDirection()`, `setCOMPinsHardwareConfiguration()`, `setPrechargePeriod()`, `setVoltageCommonHigh()`, `setFillOverlay()`, `setInvertDisplay()`, `setDataClockOscillationFrequency()`, `setAddressWindow()` and `unsetScroll()`.
+The same settings are available as methods: `displayOn()`, `displayOff()`, `setDisplay()`, `setContrast()`, `setDisplayOffset()`, `setDisplayStartLine()`, `setMultiplexRatio()`, `setChargePumpRegulator()`, `setMemoryAddressingMode()`, `setSegmentRemap()`, `setCOMOutputScanDirection()`, `setCOMPinsHardwareConfiguration()`, `setPrechargePeriod()`, `setVoltageCommonHigh()`, `setFillOverlay()`, `setInvertDisplay()`, `setDataClockOscillationFrequency()`, `setAddressWindow()`, `setPagePosition()` and `unsetScroll()`.
 
 ## Errors
 
 Failures throw `DeptOfScrapyardRobotics\Displays\SSD1306\SSD1306Exception`, which extends the framework's `GPIOLevelException`:
 
 - A contrast, offset, start line or multiplex value is out of range.
-- Your code switches to an addressing mode that has no `FormatSpec`.
+- Your code sets `SSD1306AddressingMode::INVALID`.
 - Your code reads or writes a property or configuration key that doesn't exist.
 
 ## Closing

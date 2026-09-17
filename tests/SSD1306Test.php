@@ -101,7 +101,7 @@ it('applies every boot setting from the configuration', function (): void {
     expect($commands)->toContain([0xD3, 0x03], [0x45], [0xA1], [0xC8], [0xDA, 0x22], [0x81, 0x10], [0xD9, 0x22], [0xDB, 0x30], [0xA7]);
 });
 
-it('builds the FormatSpec from the addressing mode at boot and exposes it', function (): void {
+it('exposes one FormatSpec, the same in every addressing mode', function (): void {
     [$panel] = i2cPanel();
 
     $spec = $panel->formatSpec();
@@ -111,22 +111,74 @@ it('builds the FormatSpec from the addressing mode at boot and exposes it', func
         ->and($spec->bit_depth)->toBe(BitDepth::B1)
         ->and($spec->bit_order)->toBe(BitOrder::LSB_FIRST)
         ->and($spec->page_axis)->toBe(PageAxis::VERTICAL);
+
+    foreach ([SSD1306AddressingMode::VERTICAL_ADDRESSING_MODE, SSD1306AddressingMode::PAGE_ADDRESSING_MODE, SSD1306AddressingMode::HORIZONTAL_ADDRESSING_MODE] as $mode) {
+        $panel->addressing_mode = $mode;
+
+        expect($panel->addressing_mode)->toBe($mode)
+            ->and($panel->formatSpec())->toEqual($spec);
+    }
 });
 
-it('records the new addressing mode before building the FormatSpec for it', function (): void {
-    [$panel] = i2cPanel();
+it('boots in any addressing mode', function (SSD1306AddressingMode $mode): void {
+    [$panel, $bus] = i2cPanel(new SSD1306Configuration(addressing_mode: $mode));
 
+    expect($panel->hasBooted())->toBeTrue()
+        ->and(framed($bus))->toContain([0x00, [0x20, $mode->value]]);
+})->with([SSD1306AddressingMode::HORIZONTAL_ADDRESSING_MODE, SSD1306AddressingMode::VERTICAL_ADDRESSING_MODE, SSD1306AddressingMode::PAGE_ADDRESSING_MODE]);
+
+it('refuses the invalid addressing mode without writing it', function (): void {
+    [$panel, $bus] = i2cPanel();
+    $before = count($bus->writes);
+
+    expect(fn () => $panel->addressing_mode = SSD1306AddressingMode::INVALID)
+        ->toThrow(SSD1306Exception::class, 'invalid Addressing Mode - INVALID')
+        ->and(count($bus->writes))->toBe($before)
+        ->and($panel->addressing_mode)->toBe(SSD1306AddressingMode::HORIZONTAL_ADDRESSING_MODE);
+});
+
+it('takes the same bytes in every mode: vertical mode reorders them column by column', function (): void {
+    [$panel, $bus] = i2cPanel();
+    $panel->addressing_mode = SSD1306AddressingMode::VERTICAL_ADDRESSING_MODE;
+    $before = count($bus->writes);
+
+    // 3 columns × 2 pages, page-major: page 2 = [1, 2, 3], page 3 = [4, 5, 6]
+    $panel->transmit(8, 16, [1, 2, 3, 4, 5, 6], 3, 16);
+
+    expect(framed($bus, $before))->toBe([
+        [0x00, [0x21, 8, 10]],
+        [0x00, [0x22, 2, 3]],
+        [0x40, [1, 4, 2, 5, 3, 6]],
+    ]);
+});
+
+it('takes the same bytes in every mode: page mode places and sends each page itself', function (): void {
+    [$panel, $bus] = i2cPanel();
     $panel->addressing_mode = SSD1306AddressingMode::PAGE_ADDRESSING_MODE;
+    $before = count($bus->writes);
 
-    expect($panel->addressing_mode)->toBe(SSD1306AddressingMode::PAGE_ADDRESSING_MODE)
-        ->and($panel->formatSpec()->pixel_format)->toBe(PixelFormat::MONO_VERTICAL_PAGE);
+    $panel->transmit(0x2A, 16, [1, 2, 3, 4, 5, 6], 3, 16);
+
+    expect(framed($bus, $before))->toBe([
+        [0x00, [0x0A]], [0x00, [0x12]], [0x00, [0xB2]],
+        [0x40, [1, 2, 3]],
+        [0x00, [0x0A]], [0x00, [0x12]], [0x00, [0xB3]],
+        [0x40, [4, 5, 6]],
+    ]);
 });
 
-it('refuses vertical addressing, which has no FormatSpec', function (): void {
-    [$panel] = i2cPanel();
+it('sends a full frame in page mode as eight placed pages', function (): void {
+    [$panel, $bus] = i2cPanel();
+    $panel->addressing_mode = SSD1306AddressingMode::PAGE_ADDRESSING_MODE;
+    $before = count($bus->writes);
 
-    expect(fn () => $panel->addressing_mode = SSD1306AddressingMode::VERTICAL_ADDRESSING_MODE)
-        ->toThrow(SSD1306Exception::class, 'VERTICAL_ADDRESSING_MODE');
+    $panel->transmit(0, 0, array_fill(0, 128 * 8, 0xFF));
+
+    $frames = framed($bus, $before);
+    $pages = array_values(array_filter($frames, fn (array $f): bool => $f[0] === 0x00 && ($f[1][0] & 0xF0) === 0xB0));
+
+    expect($pages)->toBe(array_map(fn (int $p): array => [0x00, [0xB0 | $p]], range(0, 7)))
+        ->and(array_sum(array_map(fn (array $f): int => $f[0] === 0x40 ? count($f[1]) : 0, $frames)))->toBe(128 * 8);
 });
 
 it('transmits a frame into the column and page window it covers', function (): void {

@@ -36,9 +36,9 @@ class SSD1306Exception extends CircuitException
         return new static("invalid Contrast value - {$pos}");
     }
 
-    public static function unsupportedAddressingModeForFormatSpec(string $mode): static
+    public static function invalidAddressingMode(string $mode): static
     {
-        return new static("No FormatSpec mapping for addressing mode {$mode}; only page-major (HORIZONTAL/PAGE) packing is currently expressible.");
+        return new static("invalid Addressing Mode - {$mode}");
     }
 
     public static function invalidProperty(string $name, string $class): static

@@ -2,17 +2,27 @@
 
 namespace DeptOfScrapyardRobotics\Displays\SSD1306\Transports;
 
+use DeptOfScrapyardRobotics\Displays\SSD1306\SSD1306Exception;
 use GeneralPurposeIO\Contracts\IntegratedCircuits\DataCommander;
 
+/**
+ * Commands and display RAM bytes to the panel. Every write is checked: a short or failed write (a NACK, a bus
+ * error) throws, so a missing or unpowered I2C panel fails boot instead of booting silently.
+ */
 abstract class SSD1306DataTransport implements DataCommander
 {
     public function __construct(
         protected int $max_packet_size
-    ) {}
+    ) {
+        $this->maxPacketSize($max_packet_size);
+    }
 
     abstract protected function closeMain(): void;
     abstract protected function sendData(array|string $data = []): void;
     abstract protected function sendCommand(int $register, array $command_data = []): int;
+
+    /** The largest data packet this bus takes in one write. */
+    abstract protected function packetLimit(): int;
 
     public function command(int $register, array $command_data = []): int
     {
@@ -24,9 +34,15 @@ abstract class SSD1306DataTransport implements DataCommander
         $this->sendData($data);
     }
 
+    /** Data bytes per write; transmit() splits a frame into packets of at most this many. */
     public function maxPacketSize(int $size): static
     {
+        if ($size < 1 || $size > $this->packetLimit()) {
+            throw SSD1306Exception::invalidPacketSize($size, $this->packetLimit());
+        }
+
         $this->max_packet_size = $size;
+
         return $this;
     }
 
@@ -35,5 +51,15 @@ abstract class SSD1306DataTransport implements DataCommander
     public function close(): void
     {
         $this->closeMain();
+    }
+
+    /** @throws SSD1306Exception when the bus wrote fewer bytes than asked */
+    protected function checked(string $what, int $expected, int $written): int
+    {
+        if ($written !== $expected) {
+            throw SSD1306Exception::writeFailed($what, $expected, $written);
+        }
+
+        return $written;
     }
 }

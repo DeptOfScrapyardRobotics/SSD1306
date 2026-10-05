@@ -2,33 +2,35 @@
 
 ## Knowledge Bundle (OKF)
 
-This package ships an Open Knowledge Format bundle at [`.okf/`](.okf/) (excluded from the Composer dist via `.gitattributes` `export-ignore`). Before changing code or advising on this package: read [`.okf/index.md`](.okf/index.md) first, open only the concepts the task needs, prefer `status: stable` over `draft`. When you learn something durable, update the affected concept(s) and append [`.okf/log.md`](.okf/log.md); new or changed concepts stay `status: draft` until a human verifies them.
+This package ships an Open Knowledge Format bundle at [`.okf/`](.okf/) (excluded from the Composer dist via `.gitattributes` `export-ignore`). Before changing code or advising on this package: read [`.okf/index.md`](.okf/index.md) first, open only the concepts the task needs, prefer `status: stable` over `draft`. When you learn something durable, update the affected concept(s), bump `generated.at`, and append [`.okf/log.md`](.okf/log.md); new or changed concepts stay `status: draft` until a human verifies them. The bundle documents the package, never a session.
 
-Do **not** create `.okf` folders under `src/*` — knowledge for this package lives at the package root only. Transport, dock and framebuffer semantics belong to `scrapyard-io/framework` and `venusian/surface`; point there, do not restate them here.
+Do **not** create `.okf` folders under `src/*` — knowledge for this package lives at the package root only. Catalog, transport and adapter semantics belong to `scrapyard-io/framework`'s bundle, framebuffer packing to Surface's; point there, do not restate them here.
 
 ## Where this package sits
 
-`ext-posi` / `ext-ftdi` → `microscrap/*` → `scrapyard-io/framework` (protocol managers, transports) → **`dept-of-scrapyard-robotics/ssd1306`** (panel driver) → Surface CPU engines, which pack frames against the panel's `FormatSpec`.
+`ext-posi` / `ext-ftdi` → `microscrap/*` → `scrapyard-io/framework` (protocol managers, transports, the circuit catalog, `DisplayPanel`) → **`dept-of-scrapyard-robotics/ssd1306`** (panel driver) → apps and Surface.
 
-## Package rules (quick) — 0.8.x
+## Package rules (quick) — 0.10.x
 
-- Composer: `dept-of-scrapyard-robotics/ssd1306` **0.8.0**. PHP `^8.4|^8.5|^8.6`. Namespace `DeptOfScrapyardRobotics\Displays\SSD1306\` → `src/`.
-- **Requires split components only**: `gpio/contracts`, `gpio/integrated-circuits`, `gpio/nuts-and-bolts`, `surface/contracts`, `venusian-voyager/nuts-and-bolts`. Never `scrapyard-io/framework`, `venusian/framework` or `venusian/surface`. Protocol components and adapters are `suggest`.
-- **Panel = `Bootable` + `DisplayPanel`.** Boot runs the datasheet init sequence from `SSD1306Configuration`. `close()` releases DC and RST on SPI only; bus connections belong to their driver.
-- **The panel owns no pixels.** It exposes `formatSpec()` (mono, vertical page, LSB first) and `transmit()` takes bytes already packed to it. Packing lives in Surface.
-- **Addressing mode is the panel's problem, never the caller's.** One `FormatSpec` for every mode; `transmit()` places and orders the same bytes for horizontal (window), vertical (window, column-major) and page (`setPagePosition()` per page) mode.
-- **`SSD1306Configuration` is the state.** Every setter writes the chip and then the configuration; properties read the configuration, never the chip (the SSD1306 has no readable registers over these transports).
-- **Transports** wrap a framework `I2CTransport` (control byte `0x00` command / `0x40` data) or `SPITransport` + DC + RST `DigitalOutTransport`s, chunked by `max_packet_size`.
-- **Register breakouts** are `readonly` `DataRegister`s from `gpio/integrated-circuits`.
-- **Reach the framework through MagicAliases** (`I2C::`, `SPI::`, `DigitalIO::`), never `app('gpio.*')`.
-- **Config** merges under `circuits.ssd1306`; publish tag `ssd1306-config` → `config/circuits/ssd1306.php`. The package reads none of it.
+- Composer: `dept-of-scrapyard-robotics/ssd1306` **0.10.0**. PHP `^8.4|^8.5|^8.6`. Namespace `DeptOfScrapyardRobotics\Displays\SSD1306\` → `src/`.
+- **Requires split components only**: `gpio/contracts`, `gpio/integrated-circuits`, `gpio/nuts-and-bolts`, `venusian-surface/contracts`, `venusian-voyager/nuts-and-bolts`, `venusian-voyager/vessel`. Never `scrapyard-io/framework`, `venusian/surface` or `venusian/framework`. Protocol components and adapters are `suggest`; requires follow imports (and helper functions such as `byte2bits()`).
+- **Panel = `Bootable` + `DisplayPanel` + `WindowAddressable` + `Switchable`.** Not `RefreshesOnCommand`: the SSD1306 shows on write. `formatSpec()` is `MONO_VERTICAL_PAGE` / `B1` / `LSB_FIRST` / `PageAxis::VERTICAL` in every addressing mode; `transmit()` reorders (vertical) or places per page (page mode) itself. Surface 0.10 has no `FormatSpecification` interface; keep the three `formatSpec` methods as plain methods.
+- **Factories are the config shape.** `ConjuresSSD1306` gives `i2c()` and `spi()`, whose parameters are exactly a `circuits.ssd1306.configs.*` entry's keys; `panel` = `SSD1306Configuration` ctor args by name through `fromArray()`. The provider catalogs `ssd1306` (`SSD1306CatalogIc`). A new config key = a new factory parameter, and the reverse. Bus first, DC and RST after.
+- **SPI is mode 0 or 3, ≤ 10 MHz.** `spi()` opens an unconnected bus in `SPIMode::MODE_0`, clocks its chip select through the transport's `speed()`, refuses a shared bus in mode 1 or 2. Limits live in `SSD1306SPIClock`.
+- **Every write is checked.** Transports compare each bus write's result with the bytes sent and throw `writeFailed`; never return or swallow `-1`. I2C packets ≤ 8191 bytes (gpio/i2c's 8192-byte message less the control byte).
+- **One name per setting.** Magic properties read and write under the `SSD1306Configuration` key; setters write the chip, then the configuration; reads never touch the chip. A new setting gets its key, its setter, its `__get` / `__set` arm and a row in the property dataset test.
+- **Register breakouts** are `readonly` `DataRegister`s (`toBits` / `fromByte` / `none`), named for what the datasheet bit does.
+- **Reach the framework through the container.** 0.10 has no protocol aliases or facades. Factories resolve `gpio.i2c` / `gpio.spi` / `gpio.digital` from `ControlPanel::getInstance()`; apps call `app('circuit')->conjure()`.
+- **Config** merges under `circuits.ssd1306`; publish tag `ssd1306-config` → `config/circuits/ssd1306.php`. Package defaults are `driver => 'none'`.
 - **Exceptions** descend from `GeneralPurposeIO\Contracts\IntegratedCircuits\CircuitException` → `GPIOLevelException`.
-- Enums int- or string-backed, FULLY UPPERCASE cases. No class constants. `is_null($x)` over `$x === null`.
+- Enums int-backed, FULLY UPPERCASE cases. No class constants. `is_null($x)` over `$x === null`.
 
 ## Verification
 
 ```bash
-vendor/bin/pest            # recording fakes; no hardware
+vendor/bin/pest            # recording fake buses and pins; no hardware
 ```
 
-Hardware truth is the SSD1306 at `0x3C` on the Pi 5's `i2c-1` (`fnk`). Announce with `say` before any run that lights the panel.
+Run it under NTS and ZTS PHP before every commit. Suites stay hardware-free: panels are for scratch smoke scripts, never committed and never in `tests/`. `.okf/runbooks/hardware-smoke.md` has the script's shape.
+
+Hardware truth: a 128×64 SSD1306 at `0x3C` on a Raspberry Pi 5's I2C bus 1, and one on an FT232H over SPI with chip select on GPIO0 (D4), DC on GPIO1 (D5), RST on GPIO2 (D6). A frame is proven only when someone watched the panel show it.

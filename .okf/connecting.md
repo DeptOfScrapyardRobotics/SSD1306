@@ -1,59 +1,65 @@
 ---
 type: Guide
 title: Connecting an SSD1306
-description: Build the panel over I2C or SPI from the framework's protocol managers; control bytes, DC and RST, addresses.
-tags: [i2c, spi, transport, dc, rst]
+description: conjure() and the i2c() / spi() factories, sharing a bus, SPI mode and clock, DC and RST, building the transport by hand.
+tags: [i2c, spi, transport, dc, rst, conjure]
 status: draft
-generated: { by: claude-opus-5/claude-code, at: "2026-09-16T00:00:00Z" }
+generated: { by: claude-opus/5.5, at: 2026-10-04T21:10:00Z }
 sources:
+  - id: factories
+    resource: src/Concerns/ConjuresSSD1306.php
+    title: ConjuresSSD1306
   - id: i2c
     resource: src/Transports/SSD1306I2CTransport.php
     title: SSD1306I2CTransport
   - id: spi
     resource: src/Transports/SSD1306SPITransport.php
     title: SSD1306SPITransport
-  - id: base
-    resource: src/Transports/SSD1306DataTransport.php
-    title: SSD1306DataTransport
   - id: address
     resource: src/Enums/SSD1306I2CAddress.php
     title: SSD1306I2CAddress
+  - id: conjure-tests
+    resource: tests/Factories/ConjureTest.php
+    title: conjure tests
 ---
 
-# Shape
+# conjure
 
-MagicAlias (`I2C::` / `SPI::` / `DigitalIO::`) → `driver()` → `connectTo()` → `register()` → `device()` / `output()` → SSD1306 transport → panel.
+`app('circuit')->conjure('ssd1306')` → `circuits.ssd1306` → named config (or `default_config`) → `SSD1306::i2c()` / `spi()` with config keys as named args → booted panel. Keys: [wiring-config](/wiring-config.md).
 
-# I2C
+# i2c()
 
-Address by SA0: `SAO_GROUNDED` 0x3C, `SAO_ENERGIZED` 0x3D.[^address]
+`SSD1306::i2c(string $driver, string|int $device, int $slave = 0x3C, array $panel = [], bool $boot_now = true)`[^factories]
+
+- Bus from `gpio.i2c`: `device()` if app already connected it, else `connectTo()->register()`.
+- Address by SA0: `SAO_GROUNDED` 0x3C, `SAO_ENERGIZED` 0x3D.[^address]
+- Command write `[0x00, register, ...args]`; data write `[0x40, ...packet]`, packet ≤ `max_packet_size` (≤ 8191: gpio/i2c message cap 8192 minus control byte).[^i2c]
+
+# spi()
+
+`SSD1306::spi(string $driver, string|int $device, array $dc, array $rst, int $chip_select = 0, int $speed = 10_000_000, array $panel = [], bool $boot_now = true)`[^factories]
+
+- `speed` outside 1 Hz – 10 MHz → refused before bus touched (datasheet: 100 ns clock cycle min).
+- Bus not connected → opened mode 0 at `speed`. Already open → shared; mode 1 or 2 refused (chip shifts SDIN on rising SCLK edge; modes 0 and 3 both do).
+- `$spi->speed($speed)` on this chip select whatever bus clock.
+- `dc`, `rst` = `{driver, device, pin}` outputs from `gpio.digital`, opened after the bus: FT232H pins ride the SPI engine's context.[^conjure-tests]
+- Command: DC low, `[register, ...args]`. Data: DC high, packets of `max_packet_size`; SPI adapters split long writes themselves, so no upper bound. `reset()`: RST high → low → high, 3 ms each.[^spi]
+
+FT232H (`microscrap/scrapyard-usb`): `chip_select` 0–3 = D4–D7, 4–11 = C0–C7; DigitalIO pin 1 = D5, pin 2 = D6.
+
+# By hand
 
 ```php
-$slave = I2C::driver('native')->connectTo(1)->register()->device(1, 0x3C);
-$panel = new SSD1306(new SSD1306I2CTransport($slave), new SSD1306Configuration, boot_now: true);
+$slave = app('gpio.i2c')->driver('native')->connectTo(1)->register()->device(1, 0x3C);
+$panel = new SSD1306(new SSD1306I2CTransport($slave), new SSD1306Configuration(height: 32), boot_now: true);
 ```
-
-Command write = `[0x00, register, ...args]`. Data write = `[0x40, ...chunk]`, chunk ≤ `max_packet_size`; string data unpacked first.[^i2c] `reset()` no-op.
-
-# SPI
-
-```php
-$spi = SPI::driver('native')->connectTo(0)->mode(0)->speed(8_000_000)->register()->device(0, 0);
-$pins = DigitalIO::driver('native')->connectTo(0)->register();
-$panel = new SSD1306(new SSD1306SPITransport($spi, $pins->output(0, 24), $pins->output(0, 25)), new SSD1306Configuration, boot_now: true);
-```
-
-Command: DC low, write `[register, ...args]`. Data: DC high per chunk. `reset()`: RST high → low → high, 3 ms each. `close()` closes DC + RST.[^spi]
-
-# Packet size
-
-Base transport holds `max_packet_size` (ctor default 1024); boot overwrites it from configuration.[^base]
 
 # Related
 
-* [overview](/overview.md) · [wiring-config](/wiring-config.md) · [traps/unchecked-writes](/traps/unchecked-writes.md)
+* [overview](/overview.md) · [wiring-config](/wiring-config.md) · [configuration-object](/configuration-object.md)
 
+[^factories]: ConjuresSSD1306
 [^i2c]: SSD1306I2CTransport
 [^spi]: SSD1306SPITransport
-[^base]: SSD1306DataTransport
 [^address]: SSD1306I2CAddress
+[^conjure-tests]: conjure tests

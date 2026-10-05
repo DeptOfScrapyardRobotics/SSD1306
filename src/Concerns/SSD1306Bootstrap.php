@@ -10,23 +10,16 @@ trait SSD1306Bootstrap
     use SSD1306API;
 
     /**
+     * Every run-time setting under its config key: reads come from config(), writes go to the chip and then config().
+     *
      * @throws SSD1306Exception
      */
     public function __get(string $name): mixed
     {
         return match ($name) {
-            'display_on' => $this->config()->get('display_on'),
-            'offset' => $this->config()->get('display_offset'),
-            'contrast' => $this->config()->get('contrast'),
-            'start_line' => $this->config()->get('start_line'),
-            'charge_pump' => $this->config()->get('charge_pump'),
-            'flip_line_0_and_127' => $this->config()->get('map_line_0_to_line_127'),
-            'flip_line_scan_dir' => $this->config()->get('reverse_line_scan_direction'),
-            'com_pins_config' => $this->config()->get('com_pins_config'),
-            'powered_by_host_device' => $this->config()->get('powered_by_host_device'),
-            'v_com_h' => $this->config()->get('v_com_h'),
-            'addressing_mode' => $this->config()->get('addressing_mode'),
-            'fill_overlay_on' => $this->config()->get('fill_overlay_on'),
+            'display_on', 'display_offset', 'contrast', 'start_line', 'charge_pump', 'addressing_mode',
+            'map_line_0_to_line_127', 'reverse_line_scan_direction', 'com_pins_config', 'powered_by_host_device',
+            'v_com_h', 'fill_overlay_on', 'invert_display' => $this->config()->get($name),
             default => throw SSD1306Exception::invalidProperty($name, static::class),
         };
     }
@@ -38,16 +31,17 @@ trait SSD1306Bootstrap
     {
         match ($name) {
             'display_on' => $this->setDisplay((bool) $value),
-            'offset' => $this->setDisplayOffset((int) $value),
-            'charge_pump_regulator' => $this->setChargePumpRegulator((bool) $value),
-            'addressing_mode' => $this->setMemoryAddressingMode($value),
-            'segment_remap' => $this->setSegmentRemap((bool) $value),
-            'reverse_com_scan_dir' => $this->setCOMOutputScanDirection((bool) $value),
-            'com_pins_hw_config' => $this->setCOMPinsHardwareConfiguration($value),
+            'display_offset' => $this->setDisplayOffset((int) $value),
             'contrast' => $this->setContrast((int) $value),
+            'start_line' => $this->setDisplayStartLine((int) $value),
+            'charge_pump' => $this->setChargePumpRegulator((bool) $value),
+            'addressing_mode' => $this->setMemoryAddressingMode($value),
+            'map_line_0_to_line_127' => $this->setSegmentRemap((bool) $value),
+            'reverse_line_scan_direction' => $this->setCOMOutputScanDirection((bool) $value),
+            'com_pins_config' => $this->setCOMPinsHardwareConfiguration($value),
             'powered_by_host_device' => $this->setPrechargePeriod((bool) $value),
             'v_com_h' => $this->setVoltageCommonHigh($value),
-            'toggle_fill_overlay' => $this->setFillOverlay((bool) $value),
+            'fill_overlay_on' => $this->setFillOverlay((bool) $value),
             'invert_display' => $this->setInvertDisplay((bool) $value),
             default => throw SSD1306Exception::invalidProperty($name, static::class),
         };

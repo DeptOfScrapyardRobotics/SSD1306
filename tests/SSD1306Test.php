@@ -76,10 +76,19 @@ it('boots over I2C with the datasheet init sequence, every command behind a 0x00
         ->and(array_column(framed($bus), 1))->toBe(defaultBootCommands());
 });
 
-it('derives the multiplex ratio from the configured height', function (): void {
-    [, $bus] = i2cPanel(new SSD1306Configuration(width: 128, height: 32));
+it('derives the multiplex ratio and the COM pin layout from the configured height', function (): void {
+    [, $short] = i2cPanel(new SSD1306Configuration(width: 128, height: 32));
+    [, $tall] = i2cPanel(new SSD1306Configuration(width: 128, height: 64));
 
-    expect(framed($bus)[2][1])->toBe([0xA8, 0x1F]);
+    expect(framed($short)[2][1])->toBe([0xA8, 0x1F])
+        ->and(framed($short)[9][1])->toBe([0xDA, 0x02])
+        ->and(framed($tall)[9][1])->toBe([0xDA, 0x12]);
+});
+
+it('takes an explicit COM pin layout over the height default', function (): void {
+    [, $bus] = i2cPanel(new SSD1306Configuration(width: 128, height: 32, alternative_com_pins: true));
+
+    expect(framed($bus)[9][1])->toBe([0xDA, 0x12]);
 });
 
 it('applies every boot setting from the configuration', function (): void {
@@ -91,7 +100,7 @@ it('applies every boot setting from the configuration', function (): void {
         enable_com_lr_remap: true,
         powered_by_host_device: false,
         map_line_0_to_line_127: true,
-        sequential_com_pin_config: false,
+        alternative_com_pins: false,
         reverse_line_scan_direction: true,
         v_com_h: SSD1306VoltageCommonHigh::LEVEL_083,
     ));
@@ -223,13 +232,13 @@ it('reads and writes settings through properties and keeps the configuration cur
 
     $panel->contrast = 0x20;
     $panel->invert_display = true;
-    $panel->offset = 7;
+    $panel->display_offset = 7;
     $panel->display_on = false;
-    $panel->toggle_fill_overlay = true;
+    $panel->fill_overlay_on = true;
 
     expect(array_column(framed($bus, $before), 1))->toBe([[0x81, 0x20], [0xA7], [0xD3, 0x07], [0xAE], [0xA5]])
         ->and($panel->contrast)->toBe(0x20)
-        ->and($panel->offset)->toBe(7)
+        ->and($panel->display_offset)->toBe(7)
         ->and($panel->display_on)->toBeFalse()
         ->and($panel->fill_overlay_on)->toBeTrue()
         ->and($panel->addressing_mode)->toBe(SSD1306AddressingMode::HORIZONTAL_ADDRESSING_MODE)
@@ -241,7 +250,7 @@ it('refuses out-of-range settings and unknown properties', function (): void {
     [$panel] = i2cPanel();
 
     expect(fn () => $panel->contrast = 256)->toThrow(SSD1306Exception::class, 'Contrast')
-        ->and(fn () => $panel->offset = 64)->toThrow(SSD1306Exception::class, 'Offset')
+        ->and(fn () => $panel->display_offset = 64)->toThrow(SSD1306Exception::class, 'Offset')
         ->and(fn () => $panel->nope)->toThrow(SSD1306Exception::class, "Invalid property 'nope'")
         ->and(fn () => $panel->nope = 1)->toThrow(SSD1306Exception::class, "Invalid property 'nope'");
 });
@@ -268,7 +277,8 @@ function spiPanel(): array
 {
     $dc = new FakeOutputPin(24);
     $rst = new FakeOutputPin(25);
-    $spi = new FakeSPITransport($dc);
+    $spi = new FakeSPITransport(0);
+    $spi->dc = $dc;
     $panel = new SSD1306(new SSD1306SPITransport($spi, $dc, $rst), new SSD1306Configuration, boot_now: true);
 
     return [$panel, $spi, $dc, $rst];
@@ -296,12 +306,13 @@ it('sends data over SPI with DC high, in packets', function (): void {
 });
 
 it('releases DC and RST on close', function (): void {
-    [$panel, , $dc, $rst] = spiPanel();
+    [$panel, $spi, $dc, $rst] = spiPanel();
 
     $panel->close();
 
-    expect($dc->closed)->toBeTrue()
-        ->and($rst->closed)->toBeTrue();
+    expect($dc->closed())->toBeTrue()
+        ->and($rst->closed())->toBeTrue()
+        ->and($spi->closed())->toBeFalse();
 });
 
 it('leaves the I2C connection to its driver on close', function (): void {
@@ -309,5 +320,90 @@ it('leaves the I2C connection to its driver on close', function (): void {
 
     $panel->close();
 
-    expect($bus->closed)->toBeFalse();
+    expect($bus->closed())->toBeFalse();
+});
+
+it('is a window-addressable, switchable display panel that does not refresh on command', function (): void {
+    expect(is_subclass_of(SSD1306::class, DisplayPanel::class))->toBeTrue()
+        ->and(is_subclass_of(SSD1306::class, \GeneralPurposeIO\Contracts\IntegratedCircuits\WindowAddressable::class))->toBeTrue()
+        ->and(is_subclass_of(SSD1306::class, \GeneralPurposeIO\Contracts\IntegratedCircuits\Switchable::class))->toBeTrue()
+        ->and(is_subclass_of(SSD1306::class, \GeneralPurposeIO\Contracts\IntegratedCircuits\RefreshesOnCommand::class))->toBeFalse();
+});
+
+it('reads back every setting under the name it was written', function (string $name, mixed $value, array $command): void {
+    [$panel, $bus] = i2cPanel();
+    $before = count($bus->writes);
+
+    $panel->{$name} = $value;
+
+    expect($panel->{$name})->toEqual($value)
+        ->and($panel->config()->get($name))->toEqual($value)
+        ->and(array_column(framed($bus, $before), 1))->toBe([$command]);
+})->with([
+    'display_on' => ['display_on', false, [0xAE]],
+    'display_offset' => ['display_offset', 9, [0xD3, 9]],
+    'contrast' => ['contrast', 0x7F, [0x81, 0x7F]],
+    'start_line' => ['start_line', 12, [0x4C]],
+    'charge_pump' => ['charge_pump', false, [0x8D, 0x10]],
+    'addressing_mode' => ['addressing_mode', SSD1306AddressingMode::PAGE_ADDRESSING_MODE, [0x20, 0x02]],
+    'map_line_0_to_line_127' => ['map_line_0_to_line_127', true, [0xA1]],
+    'reverse_line_scan_direction' => ['reverse_line_scan_direction', true, [0xC8]],
+    'com_pins_config' => ['com_pins_config', new SSD1306COMPinsHWConfig(true, false), [0xDA, 0x22]],
+    'powered_by_host_device' => ['powered_by_host_device', false, [0xD9, 0x22]],
+    'v_com_h' => ['v_com_h', SSD1306VoltageCommonHigh::LEVEL_065, [0xDB, 0x00]],
+    'fill_overlay_on' => ['fill_overlay_on', true, [0xA5]],
+    'invert_display' => ['invert_display', true, [0xA7]],
+]);
+
+it('keeps the COM left/right remap key in step with a written COM pin config', function (): void {
+    [$panel] = i2cPanel();
+
+    $panel->com_pins_config = new SSD1306COMPinsHWConfig(enable_com_lr_remap: true, alternative_com_pins: true);
+
+    expect($panel->config()->get('enable_com_lr_remap'))->toBeTrue();
+});
+
+it('fails boot when the I2C panel does not acknowledge', function (): void {
+    $bus = new FakeI2CTransport;
+    $bus->nack_from = 0;
+
+    expect(fn () => new SSD1306(new SSD1306I2CTransport($bus), new SSD1306Configuration, boot_now: true))
+        ->toThrow(SSD1306Exception::class, 'SSD1306 command 0xAE write failed: -1 of 2 bytes');
+});
+
+it('fails a transmit whose data packet is not acknowledged', function (): void {
+    [$panel, $bus] = i2cPanel();
+    $bus->nack_from = count($bus->writes) + 2;
+
+    expect(fn () => $panel->transmit(0, 0, [1, 2, 3], 3, 8))
+        ->toThrow(SSD1306Exception::class, 'SSD1306 data write failed: -1 of 4 bytes');
+});
+
+it('fails an SPI write the bus could not send', function (): void {
+    [$panel, $spi] = spiPanel();
+    $spi->answer = -1;
+
+    expect(fn () => $panel->contrast = 1)->toThrow(SSD1306Exception::class, 'SSD1306 command 0x81 write failed: -1 of 2 bytes')
+        ->and(fn () => $panel->transport()->data("\x01\x02"))->toThrow(SSD1306Exception::class, 'SSD1306 data write failed: -1 of 2 bytes');
+});
+
+it('bounds the packet size by what the bus takes in one write', function (): void {
+    $spi = new FakeSPITransport(0);
+    $pin = new FakeOutputPin(1);
+
+    expect(fn () => new SSD1306I2CTransport(new FakeI2CTransport, 8192))->toThrow(SSD1306Exception::class, 'max_packet_size 8192 must be at least 1 and at most 8191')
+        ->and(fn () => new SSD1306I2CTransport(new FakeI2CTransport, 0))->toThrow(SSD1306Exception::class, 'max_packet_size 0')
+        ->and(fn () => (new SSD1306I2CTransport(new FakeI2CTransport))->maxPacketSize(9000))->toThrow(SSD1306Exception::class, 'max_packet_size 9000')
+        ->and((new SSD1306I2CTransport(new FakeI2CTransport, 8191))->maxPacketSize(16))->toBeInstanceOf(SSD1306I2CTransport::class)
+        ->and(new SSD1306SPITransport($spi, $pin, $pin, 65536))->toBeInstanceOf(SSD1306SPITransport::class);
+});
+
+it('builds a configuration from a config entry\'s panel array and names an unknown key', function (): void {
+    $config = SSD1306Configuration::fromArray(['width' => 96, 'height' => 16, 'contrast' => 0x20]);
+
+    expect($config->get('width'))->toBe(96)
+        ->and($config->get('height'))->toBe(16)
+        ->and($config->get('contrast'))->toBe(0x20)
+        ->and($config->get('com_pins_config')->alternative_com_pins)->toBeFalse()
+        ->and(fn () => SSD1306Configuration::fromArray(['widht' => 96]))->toThrow(SSD1306Exception::class, "Invalid property 'widht'");
 });

@@ -2,25 +2,25 @@
 okf_version: "0.2"
 ---
 
-# dept-of-scrapyard-robotics/ssd1306 — knowledge bundle
+# dept-of-scrapyard-robotics/ssd1306
 
-SSD1306 monochrome OLED driver for `scrapyard-io/framework` 0.8. I2C or SPI, datasheet boot from a configuration object, page-windowed frame writes, `FormatSpec` for Surface CPU engines.
+SSD1306 monochrome OLED driver for `scrapyard-io/framework` 0.10. I2C or SPI, conjured from config, datasheet boot from a configuration object, checked writes, page-windowed frame writes, `FormatSpec` for Surface framebuffers.
 
 Read this index first, open only concepts task needs. Every concept `status: draft` until human verifies.
 
 # Concepts
 
-* [overview.md](/overview.md) - package identity, requires, classes, boot sequence, errors
-* [connecting.md](/connecting.md) - I2C and SPI transports, control bytes, DC/RST, addresses
-* [configuration-object.md](/configuration-object.md) - SSD1306Configuration fields, get/set, COM pins byte
-* [drawing.md](/drawing.md) - FormatSpec, packing, transmit() windows, timings
-* [settings.md](/settings.md) - property names, setter methods, state kept in configuration
-* [wiring-config.md](/wiring-config.md) - circuits.ssd1306 keys, publish tag
+* [Package](overview.md) - SSD1306 OLED panel driver for scrapyard-io/framework 0.10 — identity, requires, classes, boot sequence, errors.
+* [Connecting](connecting.md) - conjure() and the i2c() / spi() factories, sharing a bus, SPI mode and clock, DC and RST, building the transport by hand.
+* [Configuration object](configuration-object.md) - SSD1306Configuration fields and defaults, fromArray(), get/set by key, COM pins byte.
+* [Drawing](drawing.md) - FormatSpec, packing frames with a Surface framebuffer, transmit() windows per addressing mode, live timings.
+* [Settings](settings.md) - Magic properties under their configuration key names, the setters behind them, where state lives.
+* [Wiring config](wiring-config.md) - circuits.ssd1306 keys, how conjure() reads them, provider merge, publish tag.
 
-# Traps
+# Runbooks
 
-* [traps/](/traps/index.md) - COM pins naming, get/set name pairs, unchecked writes
+* [Hardware smoke](runbooks/hardware-smoke.md) - Pi 5 over I2C, FT232H over SPI, scratch script booted through the real providers.
 
 # Log
 
-* [log.md](/log.md)
+* [log.md](log.md)

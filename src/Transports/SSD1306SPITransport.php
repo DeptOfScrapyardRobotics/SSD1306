@@ -5,6 +5,7 @@ namespace DeptOfScrapyardRobotics\Displays\SSD1306\Transports;
 use GeneralPurposeIO\Contracts\Digital\DigitalOutTransport;
 use GeneralPurposeIO\Contracts\SPI\SPITransport;
 
+/** 4-wire SPI: DC low for commands, high for display RAM bytes; RST pulses the chip's reset on boot. */
 class SSD1306SPITransport extends SSD1306DataTransport
 {
     public function __construct(
@@ -20,30 +21,28 @@ class SSD1306SPITransport extends SSD1306DataTransport
     {
         $this->dc->low();
         $payload = [$register, ...$command_data];
-        return $this->transport->write($payload);
+
+        return $this->checked(sprintf('command 0x%02X', $register), count($payload), $this->transport->write($payload));
     }
 
     protected function sendData(array|string $data = []): void
     {
-        if (is_string($data)) {
-            $length = strlen($data);
-            $offset = 0;
+        $this->dc->high();
 
-            while ($offset < $length) {
-                $this->dc->high();
-                $this->transport->write(substr($data, $offset, $this->max_packet_size));
-                $offset += $this->max_packet_size;
+        if (is_string($data)) {
+            foreach (str_split($data, $this->max_packet_size) as $chunk) {
+                $this->checked('data', strlen($chunk), $this->transport->write($chunk));
             }
 
             return;
         }
 
         foreach (array_chunk($data, $this->max_packet_size) as $chunk) {
-            $this->dc->high();
-            $this->transport->write($chunk);
+            $this->checked('data', count($chunk), $this->transport->write($chunk));
         }
     }
 
+    /** RES# low for at least 3 µs resets the chip; it is ready again once RES# is high. */
     public function reset(): void
     {
         $this->rst->high();
@@ -54,6 +53,12 @@ class SSD1306SPITransport extends SSD1306DataTransport
 
         $this->rst->high();
         usleep(3000);
+    }
+
+    /** SPI adapters split a long write into the bus's own message size. */
+    protected function packetLimit(): int
+    {
+        return PHP_INT_MAX;
     }
 
     protected function closeMain(): void

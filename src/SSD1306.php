@@ -9,14 +9,22 @@ use Surface\Contracts\Framebuffers\FormatSpec;
 use Surface\Contracts\Framebuffers\PixelFormat;
 use GeneralPurposeIO\IntegratedCircuits\Bootable;
 use Surface\Contracts\Framebuffers\ScanDirection;
-use Surface\Contracts\Framebuffers\FormatSpecification;
 use GeneralPurposeIO\Contracts\IntegratedCircuits\DisplayPanel;
+use GeneralPurposeIO\Contracts\IntegratedCircuits\Switchable;
+use GeneralPurposeIO\Contracts\IntegratedCircuits\WindowAddressable;
+use DeptOfScrapyardRobotics\Displays\SSD1306\Concerns\ConjuresSSD1306;
 use DeptOfScrapyardRobotics\Displays\SSD1306\Concerns\SSD1306Bootstrap;
 use DeptOfScrapyardRobotics\Displays\SSD1306\Enums\SSD1306AddressingMode;
 use DeptOfScrapyardRobotics\Displays\SSD1306\Transports\SSD1306DataTransport;
 
-class SSD1306 extends Bootable implements DisplayPanel, FormatSpecification
+/**
+ * A monochrome OLED of up to 128×64 pixels. Surface packs frames per formatSpec() and
+ * hands them to transmit(); conjure('ssd1306') or the i2c() / spi() factories
+ * build a wired, booted panel from config.
+ */
+class SSD1306 extends Bootable implements DisplayPanel, WindowAddressable, Switchable
 {
+    use ConjuresSSD1306;
     use SSD1306Bootstrap;
 
     protected FormatSpec $format_spec;

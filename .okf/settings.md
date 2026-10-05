@@ -1,10 +1,10 @@
 ---
 type: Reference
 title: Panel settings
-description: Magic property names for reading and writing SSD1306 settings, the setter methods behind them, and where state lives.
+description: Magic properties for reading and writing SSD1306 settings under their configuration key names, the setter methods behind them, and where state lives.
 tags: [settings, properties, contrast, invert, addressing]
 status: draft
-generated: { by: claude-opus-5/claude-code, at: "2026-09-16T00:00:00Z" }
+generated: { by: claude-opus/5.5, at: 2026-10-04T21:10:00Z }
 sources:
   - id: bootstrap
     resource: src/Concerns/SSD1306Bootstrap.php
@@ -12,6 +12,9 @@ sources:
   - id: api
     resource: src/Concerns/SSD1306API.php
     title: SSD1306API
+  - id: tests
+    resource: tests/SSD1306Test.php
+    title: panel tests
 ---
 
 # State
@@ -20,27 +23,30 @@ Setters write chip, then configuration. Reads come from configuration only; driv
 
 # Properties
 
-| Read | Write | Setter |
-|---|---|---|
-| `display_on` | `display_on` | `setDisplay` / `displayOn` / `displayOff` |
-| `contrast` | `contrast` | `setContrast` 0–255 |
-| `offset` | `offset` | `setDisplayOffset` 0–63 |
-| `start_line` | — | `setDisplayStartLine` 0–63 |
-| `addressing_mode` | `addressing_mode` | `setMemoryAddressingMode` |
-| `fill_overlay_on` | `toggle_fill_overlay` | `setFillOverlay` (A5 / A4) |
-| — | `invert_display` | `setInvertDisplay` (A7 / A6) |
-| `charge_pump` | `charge_pump_regulator` | `setChargePumpRegulator` |
-| `flip_line_0_and_127` | `segment_remap` | `setSegmentRemap` (A1 / A0) |
-| `flip_line_scan_dir` | `reverse_com_scan_dir` | `setCOMOutputScanDirection` (C8 / C0) |
-| `com_pins_config` | `com_pins_hw_config` | `setCOMPinsHardwareConfiguration` |
-| `powered_by_host_device` | `powered_by_host_device` | `setPrechargePeriod` (F1 / 22) |
-| `v_com_h` | `v_com_h` | `setVoltageCommonHigh` |
+One name per setting, read and write, = configuration key.[^bootstrap][^tests]
 
-Unknown name → `invalidProperty`.[^bootstrap] Also: `setMultiplexRatio` 16–63, `setDataClockOscillationFrequency`, `setAddressWindow`, `unsetScroll`, `getAddressingMode`.
+| Property | Setter | Bytes |
+|---|---|---|
+| `display_on` | `setDisplay` / `displayOn` / `displayOff` | AF / AE |
+| `display_offset` | `setDisplayOffset` 0–63 | D3 n |
+| `contrast` | `setContrast` 0–255 | 81 n |
+| `start_line` | `setDisplayStartLine` 0–63 | 40+n |
+| `charge_pump` | `setChargePumpRegulator` | 8D 14 / 8D 10 |
+| `addressing_mode` | `setMemoryAddressingMode` | 20 mode |
+| `map_line_0_to_line_127` | `setSegmentRemap` | A1 / A0 |
+| `reverse_line_scan_direction` | `setCOMOutputScanDirection` | C8 / C0 |
+| `com_pins_config` | `setCOMPinsHardwareConfiguration` (also updates `enable_com_lr_remap`) | DA n |
+| `powered_by_host_device` | `setPrechargePeriod` | D9 F1 / D9 22 |
+| `v_com_h` | `setVoltageCommonHigh` | DB n |
+| `fill_overlay_on` | `setFillOverlay` | A5 / A4 |
+| `invert_display` | `setInvertDisplay` | A7 / A6 |
+
+Unknown name → `invalidProperty`. Also: `setMultiplexRatio` 16–63, `setDataClockOscillationFrequency`, `setAddressWindow`, `setPagePosition`, `unsetScroll`, `getAddressingMode`.
 
 # Related
 
-* [traps/property-name-pairs](/traps/property-name-pairs.md) · [configuration-object](/configuration-object.md)
+* [configuration-object](/configuration-object.md) · [drawing](/drawing.md)
 
 [^bootstrap]: SSD1306Bootstrap __get / __set
 [^api]: SSD1306API
+[^tests]: panel tests

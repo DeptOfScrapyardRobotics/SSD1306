@@ -4,6 +4,7 @@ namespace DeptOfScrapyardRobotics\Displays\SSD1306\Transports;
 
 use GeneralPurposeIO\Contracts\I2C\I2CTransport;
 
+/** Control byte 0x00 before commands, 0x40 before display RAM bytes. */
 class SSD1306I2CTransport extends SSD1306DataTransport
 {
     public function __construct(
@@ -15,33 +16,29 @@ class SSD1306I2CTransport extends SSD1306DataTransport
 
     protected function sendCommand(int $register, array $command_data = []): int
     {
-        $payload = [0x00, ...[$register, ...$command_data]];
-        return $this->transport->write($payload);
+        $payload = [0x00, $register, ...$command_data];
+
+        return $this->checked(sprintf('command 0x%02X', $register), count($payload), $this->transport->write($payload));
     }
 
     protected function sendData(array|string $data = []): void
     {
-        if (is_string($data)) {
-            $length = strlen($data);
-            $offset = 0;
+        $bytes = is_string($data) ? array_values(unpack('C*', $data) ?: []) : array_values($data);
 
-            while ($offset < $length) {
-                $chunk = substr($data, $offset, $this->max_packet_size);
-                $bytes = array_values(unpack('C*', $chunk) ?: []);
-                $this->transport->write([0x40, ...$bytes]);
-                $offset += $this->max_packet_size;
-            }
-
-            return;
+        foreach (array_chunk($bytes, $this->max_packet_size) as $chunk) {
+            $packet = [0x40, ...$chunk];
+            $this->checked('data', count($packet), $this->transport->write($packet));
         }
+    }
 
-        foreach (array_chunk($data, $this->max_packet_size) as $chunk) {
-            $this->transport->write([0x40, ...$chunk]);
-        }
+    /** gpio/i2c takes 8192 bytes per message; the control byte rides in front of each packet. */
+    protected function packetLimit(): int
+    {
+        return 8191;
     }
 
     protected function closeMain(): void
     {
-
+        //
     }
 }

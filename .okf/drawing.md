@@ -1,10 +1,10 @@
 ---
 type: Guide
 title: Drawing frames
-description: How to pack bytes for the panel from its FormatSpec and write them into a column/page window with transmit().
-tags: [drawing, formatspec, framebuffer, transmit]
+description: FormatSpec, packing frames with a Surface framebuffer, transmit() windows per addressing mode, live timings on both benches.
+tags: [drawing, formatspec, transmit, framebuffer, surface]
 status: draft
-generated: { by: claude-opus-5/claude-code, at: "2026-09-16T00:00:00Z" }
+generated: { by: claude-opus/5.5, at: 2026-10-04T21:10:00Z }
 sources:
   - id: panel
     resource: src/SSD1306.php
@@ -15,29 +15,32 @@ sources:
   - id: formatspec
     resource: venusian/surface:src/Surface/Contracts/Framebuffers/FormatSpec.php
     title: Surface FormatSpec
+  - id: native
+    resource: venusian/surface:src/Surface/Framebuffers/Native/NativeFramebufferDriver.php
+    title: Surface NativeFramebufferDriver
 ---
 
 # FormatSpec
 
-`formatSpec()` → `MONO_VERTICAL_PAGE`, `B1`, `TOP_TO_BOTTOM`, `LSB_FIRST`, `PageAxis::VERTICAL`. One spec for every addressing mode; caller packs the same bytes whatever the mode.[^panel] Type from `surface/contracts`.[^formatspec]
+`formatSpec()` → `MONO_VERTICAL_PAGE`, `B1`, `TOP_TO_BOTTOM`, `LSB_FIRST`, `PageAxis::VERTICAL`. One spec for every addressing mode; caller packs the same bytes whatever the mode.[^panel] Type from `venusian-surface/contracts`.[^formatspec] Surface 0.10 has no `FormatSpecification` interface; the panel keeps `formatSpec()` / `setFormatSpec()` / `generateFormatSpec()` as plain methods.
 
 # Packing
 
 1 byte = 1 column × 1 page (8 rows). Bit 0 = page's top row. Order: page 0..N, within page column 0..W. 128×64 = 1024 bytes.
 
+A Surface framebuffer (`venusian-surface/framebuffers`) packs it:[^native]
+
 ```php
-for ($page = 0; $page < intdiv($h + 7, 8); $page++) {
-    for ($x = 0; $x < $w; $x++) {
-        $byte = 0;
-        for ($bit = 0; $bit < 8; $bit++) {
-            if (lit($x, $page * 8 + $bit)) {
-                $byte |= 1 << $bit;
-            }
-        }
-        $bytes[] = $byte;
-    }
-}
+$spec = $panel->formatSpec();
+$fb = (new NativeFramebufferDriver)->full($spec, $panel->width(), $panel->height());
+$fb->setSegment(2, 2, 8, 8, 1);
+$panel->transmit(0, 0, $fb->flush($spec, true));
+
+$region = new Region(48, 24, 32, 16);
+$panel->transmit($region->x, $region->y, $fb->flushRegion($region, $spec, true), $region->width, $region->height);
 ```
+
+`flushRegion()` answers page-major rows, the order `transmit()` takes.
 
 # transmit()
 
@@ -53,12 +56,18 @@ Window:[^api] `21 x, x+w-1` · `22 y>>3, (y+h-1)>>3`. Rows page-aligned. Byte co
 
 # Live reference
 
-Pi 5 native I2C, 1024-byte packets: full frame 28 ms horizontal / 28 ms vertical / 31 ms page; 40×24 window 4–5 ms.
+2026-10-04, 128×64, 1024-byte packets, picture checked by eye in all three modes:
+
+| Bench | Boot | Full frame | 32×16 region | 20 frames |
+|---|---|---|---|---|
+| Pi 5, I2C bus 1, 0x3C, `native` | 8.3 ms | 28.8 ms | 2.5 ms | 34.8 fps |
+| FT232H SPI, CS D4, DC D5, RST D6, `usb`, 10 MHz | 93–98 ms (RST pulse) | 5.8–9.3 ms | 6.6–7.8 ms | 168–173 fps |
 
 # Related
 
-* [connecting](/connecting.md) · [settings](/settings.md)
+* [connecting](/connecting.md) · [settings](/settings.md) · [hardware smoke](/runbooks/hardware-smoke.md)
 
 [^panel]: SSD1306::transmit() / formatSpec()
 [^api]: SSD1306API::setAddressWindow() / setPagePosition()
 [^formatspec]: Surface FormatSpec
+[^native]: Surface NativeFramebufferDriver

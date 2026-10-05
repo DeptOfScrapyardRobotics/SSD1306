@@ -126,6 +126,7 @@ trait SSD1306API
     {
         $this->sendCommand(SSD1306OpCode::COM_PINS_HW_CONFIG_REGISTER, [$config->toByte()]);
         $this->config()->set('com_pins_config', $config);
+        $this->config()->set('enable_com_lr_remap', $config->enable_com_lr_remap);
     }
 
     /**

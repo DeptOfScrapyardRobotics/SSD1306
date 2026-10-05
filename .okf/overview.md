@@ -1,11 +1,11 @@
 ---
 type: Package
 title: dept-of-scrapyard-robotics/ssd1306
-description: SSD1306 OLED panel driver for scrapyard-io/framework 0.8 — identity, requires, classes, boot sequence, errors.
+description: SSD1306 OLED panel driver for scrapyard-io/framework 0.10 — identity, requires, classes, boot sequence, errors.
 resource: composer.json
 tags: [ssd1306, oled, display, i2c, spi, package]
 status: draft
-generated: { by: claude-opus-5/claude-code, at: "2026-09-16T00:00:00Z" }
+generated: { by: claude-opus/5.5, at: 2026-10-04T21:10:00Z }
 sources:
   - id: composer
     resource: composer.json
@@ -16,6 +16,9 @@ sources:
   - id: bootstrap
     resource: src/Concerns/SSD1306Bootstrap.php
     title: SSD1306Bootstrap
+  - id: transport
+    resource: src/Transports/SSD1306DataTransport.php
+    title: SSD1306DataTransport
   - id: exception
     resource: src/SSD1306Exception.php
     title: SSD1306Exception
@@ -28,10 +31,11 @@ sources:
 
 | Field | Value |
 |---|---|
-| Composer | `dept-of-scrapyard-robotics/ssd1306` **0.8.0** |
+| Composer | `dept-of-scrapyard-robotics/ssd1306` **0.10.0**, alias `dev-main` → `0.10.x-dev` |
 | PHP | `^8.4\|^8.5\|^8.6` |
 | Namespace | `DeptOfScrapyardRobotics\Displays\SSD1306\` → `src/` |
 | Provider | `Providers\SSD1306ServiceProvider` (`extra.venusian.providers`) |
+| Catalog slug | `ssd1306` (`Enums\SSD1306CatalogIc`) |
 
 # Requires
 
@@ -39,32 +43,35 @@ Split components only.[^composer]
 
 | Package | Why |
 |---|---|
-| `gpio/contracts` | transport, `DisplayPanel`, `DataCommander` contracts; exception root |
+| `gpio/contracts` | transport, `DisplayPanel` + children, `DataCommander`; exception root |
 | `gpio/integrated-circuits` | `Bootable`, `DataRegister` |
 | `gpio/nuts-and-bolts` | `byte2bits()` in breakouts |
-| `surface/contracts` | `FormatSpec` + framebuffer enums |
+| `venusian-surface/contracts` | `FormatSpec` + framebuffer enums |
 | `venusian-voyager/nuts-and-bolts` | `ServiceProvider` |
+| `venusian-voyager/vessel` | `ControlPanel` — factories resolve `gpio.i2c` / `gpio.spi` / `gpio.digital` |
 
-Suggests: `gpio/i2c`, `gpio/spi`, `gpio/digital`, `microscrap/scrapyard-linux` (ext-posi), `microscrap/scrapyard-usb` (ext-ftdi).
+Suggests: `gpio/i2c`, `gpio/spi`, `gpio/digital`, `microscrap/scrapyard-linux` (driver `native`, ext-posi), `microscrap/scrapyard-usb` (driver `usb`, ext-ftdi).
 
 # Classes
 
 | Class | Role |
 |---|---|
-| `SSD1306` | panel; `Bootable` + `DisplayPanel`; `formatSpec()` fixed for every addressing mode[^panel] |
-| `SSD1306Configuration` | size + every setting; the panel's state |
-| `Transports\SSD1306I2CTransport` | wraps `I2CTransport` |
+| `SSD1306` | panel; `Bootable` + `DisplayPanel` + `WindowAddressable` + `Switchable`; `formatSpec()` fixed for every addressing mode; `i2c()` / `spi()` factories[^panel] |
+| `SSD1306Configuration` | geometry + every setting; the panel's state |
+| `Transports\SSD1306I2CTransport` | wraps `I2CTransport`; control bytes 0x00 / 0x40 |
 | `Transports\SSD1306SPITransport` | wraps `SPITransport` + DC + RST `DigitalOutTransport` |
 | `Breakouts\{DataClock, ChargePump, COMPinsHWConfig, SegmentRemap, COMScanDirection}` | readonly register breakouts |
-| `Enums\{OpCode, AddressingMode, VoltageCommonHigh, Precharge, StartLineCommand, I2CAddress}` | typed register values |
+| `Enums\{OpCode, AddressingMode, VoltageCommonHigh, Precharge, StartLineCommand, I2CAddress, SPIClock, CatalogIc}` | typed register values |
 
 # Construct + boot
 
-`new SSD1306(SSD1306DataTransport $transport, SSD1306Configuration $props, bool $boot_now = false)`[^panel]
+`conjure('ssd1306')`, `SSD1306::i2c(...)`, `SSD1306::spi(...)` → booted panel. By hand: `new SSD1306(SSD1306DataTransport $transport, SSD1306Configuration $props, bool $boot_now = false)`.[^panel]
 
-`boot()` once:[^bootstrap] packet size → transport; reset (SPI RST pulse, I2C no-op); `AE`; `D5 80`; `A8 height-1`; `D3 offset`; `40+start_line`; `8D 14`; `20 mode` (+ FormatSpec); `A0|A1`; `C0|C8`; `DA com_pins`; `81 contrast`; `D9 F1|22`; `DB vcomh`; `A4`; `A6|A7`; `2E`; `AF`.[^tests]
+`boot()` once:[^bootstrap] packet size → transport; reset (SPI RST pulse, I2C no-op); `AE`; `D5 80`; `A8 height-1`; `D3 offset`; `40+start_line`; `8D 14`; `20 mode`; `A0|A1`; `C0|C8`; `DA com_pins`; `81 contrast`; `D9 F1|22`; `DB vcomh`; `A4`; `A6|A7`; `2E`; `AF`.[^tests]
 
-`close()` → transport close → SPI releases DC + RST; I2C nothing.
+Every bus write checked: short or failed write (NACK, bus error) → `writeFailed`. Missing or unpowered I2C panel fails on `AE`.[^transport] SPI has no acknowledge: absent SPI panel boots without error.
+
+`close()` → SPI releases DC + RST; bus slave stays with its driver.
 
 # Errors
 
@@ -72,23 +79,25 @@ Suggests: `gpio/i2c`, `gpio/spi`, `gpio/digital`, `microscrap/scrapyard-linux` (
 
 | Factory | When |
 |---|---|
+| `notConnected` | protocol driver handed back no bus or pin |
+| `spiClockOutOfRange` | `speed` outside 1 Hz – 10 MHz, before the bus is touched |
+| `wrongSpiMode` | bus already open in mode 1 or 2 |
+| `incompletePin` | `dc` / `rst` config missing `driver`, `device` or `pin` |
+| `writeFailed` | bus wrote fewer bytes than asked |
+| `invalidPacketSize` | `max_packet_size` < 1, or > 8191 on I2C |
 | `invalidMux` | multiplex outside 16–63 (height outside 17–64) |
-| `invalidOffset` | offset outside 0–63 |
-| `invalidStartLine` | start line outside 0–63 |
-| `invalidContrast` | contrast outside 0–255 |
+| `invalidOffset` / `invalidStartLine` | outside 0–63 |
+| `invalidContrast` | outside 0–255 |
 | `invalidAddressingMode` | `SSD1306AddressingMode::INVALID` |
-| `invalidProperty` | unknown magic property or configuration key |
-
-# Live reference
-
-Pi 5, `i2c-1`, panel 0x3C, native: boot, 1024-byte frame 28.4 ms, 4-page window 14.5 ms, fill overlay, invert, contrast sweep, clear.
+| `invalidProperty` | unknown magic property, configuration key, or `panel` key |
 
 # Related
 
-* [connecting](/connecting.md) · [drawing](/drawing.md) · [settings](/settings.md)
+* [connecting](/connecting.md) · [drawing](/drawing.md) · [settings](/settings.md) · [hardware smoke](/runbooks/hardware-smoke.md)
 
 [^composer]: Package manifest
 [^panel]: SSD1306
 [^bootstrap]: SSD1306Bootstrap
+[^transport]: SSD1306DataTransport
 [^exception]: SSD1306Exception
 [^tests]: panel tests
